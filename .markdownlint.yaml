@@ -1,0 +1,60 @@
+# Primary reference (rules + configuration)
+
+# - <https://github.com/DavidAnson/markdownlint>
+
+# - <https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md>
+
+# CLI + config details
+
+# - <https://github.com/igorshubovych/markdownlint-cli>
+
+# - <https://github.com/igorshubovych/markdownlint-cli#configuration>
+
+---
+default: true
+
+# Line length: allow typical prose + code blocks
+
+MD013: false
+
+# Allow multiple top-level headings in multi-doc repos
+
+MD025: false
+
+# Ordered lists: do not force strict numbering
+
+MD029:
+  style: ordered
+
+# Allow inline HTML (useful for badges/details blocks)
+
+MD033: false
+
+# Allow emphasis used as headings when intentional
+
+MD036: false
+
+# Allow duplicate headings across sections/files
+
+MD024:
+  allow_different_nesting: true
+  siblings_only: true
+
+# Unordered list style consistency
+
+MD004:
+  style: dash
+
+# Indentation for nested lists
+
+MD007:
+  indent: 2
+
+# Code fences preferred over indented code
+
+MD046:
+  style: fenced
+
+# First line should be a top-level heading
+
+MD041: true

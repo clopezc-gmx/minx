@@ -1,0 +1,26 @@
+{
+  "max_errors": 200,
+
+  "checks": {
+    "annotations.misc": false,
+
+    "typography.symbols.ellipsis": false,
+    "typography.symbols.trademark": false,
+    "typography.diacritical_marks": false,
+    "typography.exclamation": false,
+    "typography.symbols": false,
+    "typography.symbols.curly_quotes": false,
+
+    "misc.scare_quotes": false,
+
+    "cliches.hell": false,
+    "cliches.write_good": false,
+
+    "lexical_illusions.misc": true,
+
+    "weasel_words.very": false,
+    "weasel_words.many": false,
+
+    "security.password": false
+  }
+}

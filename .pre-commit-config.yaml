@@ -1,0 +1,67 @@
+---
+exclude: \.diff$
+repos:
+  - hooks:
+      - id: clang-format
+    repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v23.1.1
+  - hooks:
+      - args:
+          - -c.markdownlint.yaml
+        id: markdownlint
+        exclude: ^CHANGELOG.md$
+    repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.49.1
+  - hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: trailing-whitespace
+      - id: check-symlinks
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+    repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+  - hooks:
+      - id: black
+    repo: https://github.com/psf/black
+    rev: 26.5.1
+  - hooks:
+      - id: cmake-format
+      - id: cmake-lint
+    repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+  - hooks:
+      - id: gitleaks
+    repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+  - hooks:
+      - id: proselint
+        args: ["check", "--config", ".proselint.json"]
+        files: \.md$
+    repo: https://github.com/amperser/proselint.git
+    rev: v0.16.0
+  - hooks:
+      - id: shellcheck
+    repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1-1
+  - hooks:
+      - id: shfmt
+        files: \.sh$
+        exclude: .*\.diff$
+    repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.14.1-1
+  - hooks:
+      - id: conventional-commit-scopes
+        name: enforce conventional commits with allowed scopes
+        entry: .gitscripts/pre-commit/check_commit_msg.sh
+        language: system
+        stages: [commit-msg]
+      - id: sort-commit-scopes
+        name: sort .commit_scopes
+        entry: .gitscripts/pre-commit/sort_commit_scopes.sh
+        language: system
+        files: ^\.commit_scopes$
+        pass_filenames: false
+        require_serial: true
+    repo: local
