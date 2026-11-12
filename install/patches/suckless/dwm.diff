@@ -1,0 +1,859 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..296e73c
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,6 @@
++dwm
++config.h
++tags
++*.o
++*.tar.gz
++*.swp
+diff --git a/commit.txt b/commit.txt
+new file mode 100644
+index 0000000..ff9b764
+--- /dev/null
++++ b/commit.txt
+@@ -0,0 +1 @@
++44dbc68
+diff --git a/config.def.h b/config.def.h
+index cb4cf6b..209024f 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -1,117 +1,287 @@
+ /* See LICENSE file for copyright and license details. */
+ 
+-/* appearance */
+-static const unsigned int borderpx  = 1;        /* border pixel of windows */
+-static const unsigned int snap      = 32;       /* snap pixel */
+-static const int showbar            = 1;        /* 0 means no bar */
+-static const int topbar             = 1;        /* 0 means bottom bar */
+-static const char *fonts[]          = { "monospace:size=10" };
+-static const char dmenufont[]       = "monospace:size=10";
+-static const char col_gray1[]       = "#222222";
+-static const char col_gray2[]       = "#444444";
+-static const char col_gray3[]       = "#bbbbbb";
+-static const char col_gray4[]       = "#eeeeee";
+-static const char col_cyan[]        = "#005577";
+-static const char *colors[][3]      = {
+-	/*               fg         bg         border   */
+-	[SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
+-	[SchemeSel]  = { col_gray4, col_cyan,  col_cyan  },
++#include <X11/XF86keysym.h>
++/* Run `xev` and press a multimedia key to get its symbol name. */
++
++#define MINX_CONTROL(name, arg) {"$SCRIPTS_DIR/minx-control", name, arg, NULL}
++#define MINX_LAUNCHER(name) { "$SCRIPTS_DIR/minx-launcher", name, NULL }
++
++/* Control scripts */
++
++static const char *control_brightness_down[]   = MINX_CONTROL("brightness" , "dec"         );
++static const char *control_brightness_up[]     = MINX_CONTROL("brightness" , "inc"         );
++static const char *control_display[]           = MINX_CONTROL("display"    , ""            );
++static const char *control_keyboard[]          = MINX_CONTROL("keyboard"   , ""            );
++static const char *control_lock_screen[]       = MINX_CONTROL("lockscreen" , "lock"        );
++static const char *control_media_next[]        = MINX_CONTROL("media"      , "next"        );
++static const char *control_media_play_pause[]  = MINX_CONTROL("media"      , "play-pause"  );
++static const char *control_media_previous[]    = MINX_CONTROL("media"      , "previous"    );
++static const char *control_media_stop[]        = MINX_CONTROL("media"      , "stop"        );
++static const char *control_menu[]              = MINX_CONTROL("menu"       , ""            );
++static const char *control_microphone_toggle[] = MINX_CONTROL("microphone" , ""            );
++static const char *control_screenshot[]        = MINX_CONTROL("screenshot" , ""            );
++static const char *control_volume_down[]       = MINX_CONTROL("volume"     , "dec"         );
++static const char *control_volume_mute[]       = MINX_CONTROL("volume"     , "toggle-mute" );
++static const char *control_volume_up[]         = MINX_CONTROL("volume"     , "inc"         );
++static const char *control_wifi[]              = MINX_CONTROL("wifi"       , ""            );
++static const char *show_sysinfo[]              = MINX_CONTROL("sysinfo"    , ""            );
++
++
++/* Launchers */
++
++static const char *launch_calendar[]      = MINX_LAUNCHER("calendar"      );
++static const char *launch_custom1[]       = MINX_LAUNCHER("custom1"       );
++static const char *launch_custom2[]       = MINX_LAUNCHER("custom2"       );
++static const char *launch_explorer[]      = MINX_LAUNCHER("file_explorer" );
++static const char *launch_mail[]          = MINX_LAUNCHER("mail"          );
++static const char *launch_menu[]          = MINX_LAUNCHER("menu"          );
++static const char *launch_notes[]         = MINX_LAUNCHER("notes"         );
++static const char *launch_otpmenu[]       = MINX_LAUNCHER("otpmenu"       );
++static const char *launch_passmenu[]      = MINX_LAUNCHER("passmenu"      );
++static const char *launch_qb_profile1[]   = MINX_LAUNCHER("qb_profile1"   );
++static const char *launch_qb_profile2[]   = MINX_LAUNCHER("qb_profile2"   );
++static const char *launch_qb_profile3[]   = MINX_LAUNCHER("qb_profile3"   );
++static const char *launch_qb_profile4[]   = MINX_LAUNCHER("qb_profile4"   );
++static const char *launch_qb_profiles[]   = MINX_LAUNCHER("qb_profiles"   );
++static const char *launch_reference[]     = MINX_LAUNCHER("reference"     );
++static const char *launch_terminal[]      = MINX_LAUNCHER("terminal"      );
++static const char *launch_tmux_sessions[] = MINX_LAUNCHER("tmux_sessions" );
++static const char *launch_tt_shell[]      = MINX_LAUNCHER("tt_shell"      );
++static const char *launch_txtclip[]       = MINX_LAUNCHER("txtclip"       );
++
++static const unsigned int borderpx = 1;
++static const unsigned int snap = 32;
++static const int showbar = 1;
++static const int topbar = 0;
++static const char *fonts[] = {"JetBrainsMono Nerd Font:size=10", };
++static const char dmenufont[] = {"JetBrainsMono Nerd Font:size=10", };
++
++/* Colors */
++static const char col_gray0[]  = "#111111";
++static const char col_gray1[]  = "#222222";
++static const char col_gray2[]  = "#444444";
++static const char col_gray3[]  = "#bbbbbb";
++static const char col_gray4[]  = "#eeeeee";
++static const char col_gray5[]  = "#999999";
++static const char col_cyan[]   = "#005577";
++static const char col_black[]  = "#000000";
++static const char col_red[]    = "#ff0000";
++static const char col_yellow[] = "#ffff00";
++static const char col_white[]  = "#ffffff";
++static const char col_green[]  = "#00ff00";
++
++static const char Background[] = "#000000";
++static const char Foreground[] = "#019999";
++static const char Title[]      = "#ffb86c";
++static const char Border[]     = "#bd93f9";
++
++/* Unused Dracula palette can be removed if not needed. */
++static const char DraculaBackground[]  = "#282a36";
++static const char DraculaCurrentLine[] = "#44475a";
++static const char DraculaForeground[]  = "#f8f8f2";
++static const char DraculaComment[]     = "#6272a4";
++static const char DraculaCyan[]        = "#8be9fd";
++static const char DraculaGreen[]       = "#50fa7b";
++static const char DraculaOrange[]      = "#ffb86c";
++static const char DraculaPink[]        = "#ff79c6";
++static const char DraculaPurple[]      = "#bd93f9";
++static const char DraculaRed[]         = "#ff5555";
++static const char DraculaYellow[]      = "#f1fa8c";
++
++static const char *colors[][3] = {
++	/*               fg          bg          border */
++	[SchemeNorm]   = { Foreground, Background, Background },
++	[SchemeSel]    = { Title,      Background, Border     },
++	[SchemeWarn]   = { col_yellow, Background, Background },
++	[SchemeUrgent] = { col_red,    Background, Background },
++	[SchemeReady]  = { col_green,  Background, Background },
++	[SchemeSel2]   = { col_green,  Background, Background },
++	[SchemeNorm2]  = { col_gray5,  Background, Background },
+ };
+ 
+-/* tagging */
+-static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
++/* Tags */
++static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7" };
+ 
+ static const Rule rules[] = {
+-	/* xprop(1):
+-	 *	WM_CLASS(STRING) = instance, class
+-	 *	WM_NAME(STRING) = title
++	/* xprop:
++	 * WM_CLASS(STRING) = instance, class
++	 * WM_NAME(STRING)  = title
++	 *
++	 * { class, instance, title, tags mask, isfloating, monitor }
+ 	 */
+-	/* class      instance    title       tags mask     isfloating   monitor */
+-	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
+-	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
++
++	/* ssh */
++	{ "ssh-remote" , NULL , NULL , 1 << 0 , 0 , -1 } ,
++
++	/* Music */
++	{ "Spotify",     NULL, NULL, 1 << 4, 0, -1 },
++
++    /* Browsers */
++    { "Chromium"    , NULL , NULL , 1 << 6 , 0 , -1 } ,
++    { "firefox-esr" , NULL , NULL , 1 << 6 , 0 , -1 } ,
++    { "librewolf"   , NULL , NULL , 1 << 6 , 0 , -1 } ,
++    { "qutebrowser" , NULL , NULL , 1 << 6 , 0 , -1 } ,
++
++    /* Floating by title */
++
++    { NULL       , NULL , "mail"      , 0 , 1 , -1 } ,
++    { NULL       , NULL , "tt"        , 0 , 1 , -1 } ,
++    { NULL       , NULL , "reference" , 0 , 1 , -1 } ,
++    { NULL       , NULL , "notes"     , 0 , 1 , -1 } ,
++    { NULL       , NULL , "txtclip"   , 0 , 1 , -1 } ,
++    { "qbeditor" , NULL , NULL        , 0 , 1 , -1 } ,
+ };
+ 
+-/* layout(s) */
++/* Layouts */
+ static const float mfact     = 0.55; /* factor of master area size [0.05..0.95] */
+ static const int nmaster     = 1;    /* number of clients in master area */
+-static const int resizehints = 1;    /* 1 means respect size hints in tiled resizals */
+-static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen window */
++static const int resizehints = 0;    /* 1 means respect size hints in tiled resizals */
++static const int lockfullscreen = 0; /* 1 will force focus on the fullscreen window */
+ static const int refreshrate = 120;  /* refresh rate (per second) for client move/resize */
+ 
++#include "layouts.c"
+ static const Layout layouts[] = {
+-	/* symbol     arrange function */
+-	{ "[]=",      tile },    /* first entry is default */
+-	{ "><>",      NULL },    /* no layout function means floating behavior */
+-	{ "[M]",      monocle },
++	/* symbol  arrange */
++	{ "[M]", monocle },
++	{ "[|]", tile    },
++	{ "[+]", grid    },
++	{ "><>", NULL    },
+ };
+ 
+-/* key definitions */
+-#define MODKEY Mod1Mask
+-#define TAGKEYS(KEY,TAG) \
+-	{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
+-	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
+-	{ MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
+-	{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
++/* Key definitions */
++#define MODKEY Mod4Mask
++#define TAGKEYS(KEY, TAG) \
++	{ MODKEY                    , KEY , view       , {.ui = 1 << TAG}} , \
++	{ MODKEY|ShiftMask          , KEY , toggleview , {.ui = 1 << TAG}} , \
++	{ MODKEY|Mod1Mask           , KEY , tag        , {.ui = 1 << TAG}} , \
++	{ MODKEY|Mod1Mask|ShiftMask , KEY , toggletag  , {.ui = 1 << TAG}} ,
++
++// A tag is simply a label placed on windows.
++// A window may have one or more tags.
++// A profile4flow is the arrangement of windows from one or more tags.
++// dwm refers to a profile4flow as a view.
+ 
+ /* helper for spawning shell commands in the pre dwm-5.0 fashion */
+-#define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
++#define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL }}
+ 
+ /* commands */
+ static char dmenumon[8]; /* component of dmenucmd, manipulated in spawn() */
+-static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
+-static const char *termcmd[]  = { "st", NULL };
+-
+-static const Key keys[] = {
+-	/* modifier                     key        function        argument */
+-	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
+-	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd } },
+-	{ MODKEY,                       XK_b,      togglebar,      {0} },
+-	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
+-	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
+-	{ MODKEY,                       XK_i,      incnmaster,     {.i = +1 } },
+-	{ MODKEY,                       XK_d,      incnmaster,     {.i = -1 } },
+-	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
+-	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
+-	{ MODKEY,                       XK_Return, zoom,           {0} },
+-	{ MODKEY,                       XK_Tab,    view,           {0} },
+-	{ MODKEY|ShiftMask,             XK_c,      killclient,     {0} },
+-	{ MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
+-	{ MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} },
+-	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
+-	{ MODKEY,                       XK_space,  setlayout,      {0} },
+-	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
+-	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
+-	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
+-	{ MODKEY,                       XK_comma,  focusmon,       {.i = -1 } },
+-	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
+-	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
+-	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
+-	TAGKEYS(                        XK_1,                      0)
+-	TAGKEYS(                        XK_2,                      1)
+-	TAGKEYS(                        XK_3,                      2)
+-	TAGKEYS(                        XK_4,                      3)
+-	TAGKEYS(                        XK_5,                      4)
+-	TAGKEYS(                        XK_6,                      5)
+-	TAGKEYS(                        XK_7,                      6)
+-	TAGKEYS(                        XK_8,                      7)
+-	TAGKEYS(                        XK_9,                      8)
+-	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
++static const char *dmenucmd[] = { "rofi", "-show", "drun", NULL };
++static const char *roficmd[]  = { "rofi", "-show", "window", NULL };
++
++#include "shiftview.c"
++#include "movestack.c"
++
++static Key keys[] = {
++	TAGKEYS(XK_1, 0)
++	TAGKEYS(XK_2, 1)
++	TAGKEYS(XK_3, 2)
++	TAGKEYS(XK_4, 3)
++	TAGKEYS(XK_5, 4)
++	TAGKEYS(XK_6, 5)
++	TAGKEYS(XK_7, 6)
++	TAGKEYS(XK_8, 7)
++	TAGKEYS(XK_9, 8)
++
++	/* modifier                    key            function        argument */
++
++    /* Tags and views */
++
++	{ MODKEY , XK_backslash    , view      , { 0      } } ,
++	{ MODKEY , XK_Return       , zoom      , { 0      } } ,
++	{ MODKEY , XK_0            , view      , { .ui=~0 } } ,
++	{ MODKEY , XK_bracketleft  , shiftview , { .i=-1  } } ,
++	{ MODKEY , XK_bracketright , shiftview , { .i=+1  } } ,
++
++	/* Windows */
++
++	{ MODKEY           , XK_j , focusstack , { .i = +1          } } ,
++	{ MODKEY           , XK_k , focusstack , { .i = -1          } } ,
++	{ MODKEY           , XK_i , incnmaster , { .i = +1          } } ,
++	{ MODKEY           , XK_d , incnmaster , { .i = -1          } } ,
++	{ MODKEY           , XK_h , setmfact   , { .f = -0.05       } } ,
++	{ MODKEY           , XK_l , setmfact   , { .f = +0.05       } } ,
++	{ MODKEY           , XK_m , setlayout  , { .v = &layouts[0] } } ,
++	{ MODKEY           , XK_t , setlayout  , { .v = &layouts[1] } } ,
++	{ MODKEY           , XK_g , setlayout  , { .v = &layouts[2] } } ,
++	{ MODKEY           , XK_f , setlayout  , { .v = &layouts[3] } } ,
++	{ MODKEY|ShiftMask , XK_j , movestack  , { .i = +1          } } ,
++	{ MODKEY|ShiftMask , XK_k , movestack  , { .i = -1          } } ,
++
++	/* Monitors */
++
++	{ MODKEY          , XK_comma  , focusmon , { .i = -1 } } ,
++	{ MODKEY          , XK_period , focusmon , { .i = +1 } } ,
++	{ MODKEY|Mod1Mask , XK_comma  , tagmon   , { .i = -1 } } ,
++	{ MODKEY|Mod1Mask , XK_period , tagmon   , { .i = +1 } } ,
++
++	/* Commands */
++
++    { MODKEY|ControlMask|ShiftMask , XK_q                     , quit       , { 0                              } } ,
++    { MODKEY                       , XK_w                     , killclient , { 0                              } } ,
++    { MODKEY                       , XK_b                     , togglebar  , { 0                              } } ,
++    { MODKEY                       , XK_F9                    , spawn      , { .v = show_sysinfo              } } ,
++    { 0                            , XK_Print                 , spawn      , { .v = control_screenshot        } } ,
++    { 0                            , XF86XK_AudioMute         , spawn      , { .v = control_volume_mute       } } ,
++    { 0                            , XF86XK_AudioLowerVolume  , spawn      , { .v = control_volume_down       } } ,
++    { 0                            , XF86XK_AudioRaiseVolume  , spawn      , { .v = control_volume_up         } } ,
++    { 0                            , XF86XK_AudioMicMute      , spawn      , { .v = control_microphone_toggle } } ,
++    { 0                            , XF86XK_MonBrightnessDown , spawn      , { .v = control_brightness_down   } } ,
++    { 0                            , XF86XK_MonBrightnessUp   , spawn      , { .v = control_brightness_up     } } ,
++    { 0                            , XF86XK_Display           , spawn      , { .v = control_display           } } ,
++    { 0                            , XF86XK_WLAN              , spawn      , { .v = control_wifi              } } ,
++    { MODKEY|ShiftMask             , XK_F4                    , spawn      , { .v = control_microphone_toggle } } ,
++    { MODKEY|ShiftMask             , XK_F7                    , spawn      , { .v = control_display           } } ,
++    { MODKEY|ShiftMask             , XK_F8                    , spawn      , { .v = control_wifi              } } ,
++    { MODKEY|ShiftMask             , XK_F9                    , spawn      , { .v = control_menu              } } ,
++    { MODKEY|ShiftMask             , XK_BackSpace             , spawn      , { .v = control_lock_screen       } } ,
++
++	/* Media */
++
++	{ MODKEY , XK_Down  , spawn , { .v = control_media_play_pause } } ,
++	{ MODKEY , XK_Left  , spawn , { .v = control_media_previous   } } ,
++	{ MODKEY , XK_Right , spawn , { .v = control_media_next       } } ,
++	{ MODKEY , XK_Up    , spawn , { .v = control_media_stop       } } ,
++
++	/* Launchers */
++
++    { MODKEY|ShiftMask , XK_0         , spawn , { .v = launch_menu          }  } ,
++    { MODKEY|ShiftMask , XK_1         , spawn , { .v = launch_custom1       }  } ,
++    { MODKEY|ShiftMask , XK_2         , spawn , { .v = launch_custom2       }  } ,
++    { MODKEY|ShiftMask , XK_Delete    , spawn , { .v = launch_qb_profile4   }  } ,
++    { MODKEY|ShiftMask , XK_End       , spawn , { .v = launch_qb_profile2   }  } ,
++    { MODKEY|ShiftMask , XK_Escape    , spawn , { .v = launch_qb_profiles   }  } ,
++    { MODKEY|ShiftMask , XK_Home      , spawn , { .v = launch_qb_profile1   }  } ,
++    { MODKEY|ShiftMask , XK_Insert    , spawn , { .v = launch_qb_profile3   }  } ,
++    { MODKEY|ShiftMask , XK_Return    , spawn , { .v = launch_terminal      }  } ,
++    { MODKEY|ShiftMask , XK_Tab       , spawn , { .v = roficmd              }  } ,
++    { MODKEY|ShiftMask , XK_backslash , spawn , { .v = launch_tmux_sessions }  } ,
++    { MODKEY|ShiftMask , XK_c         , spawn , { .v = launch_calendar      }  } ,
++    { MODKEY|ShiftMask , XK_e         , spawn , { .v = launch_explorer      }  } ,
++    { MODKEY|ShiftMask , XK_i         , spawn , { .v = launch_txtclip       }  } ,
++    { MODKEY|ShiftMask , XK_l         , spawn , { .v = control_keyboard     }  } ,
++    { MODKEY|ShiftMask , XK_m         , spawn , { .v = launch_mail          }  } ,
++    { MODKEY|ShiftMask , XK_n         , spawn , { .v = launch_notes         }  } ,
++    { MODKEY|ShiftMask , XK_o         , spawn , { .v = launch_otpmenu       }  } ,
++    { MODKEY|ShiftMask , XK_p         , spawn , { .v = launch_passmenu      }  } ,
++    { MODKEY|ShiftMask , XK_r         , spawn , { .v = launch_reference     }  } ,
++    { MODKEY|ShiftMask , XK_t         , spawn , { .v = launch_tt_shell      }  } ,
++
+ };
+ 
+-/* button definitions */
++/* Button definitions */
+ /* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
+ static const Button buttons[] = {
+-	/* click                event mask      button          function        argument */
+-	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
+-	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
+-	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
+-	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
+-	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
+-	{ ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
+-	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
+-	{ ClkTagBar,            0,              Button1,        view,           {0} },
+-	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
+-	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
+-	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
++	/* click         event mask  button   function        argument */
++	{ ClkLtSymbol,   0,          Button1, setlayout,      {0} },
++	{ ClkLtSymbol,   0,          Button3, setlayout,      { .v = &layouts[2] } },
++	{ ClkWinTitle,   0,          Button2, zoom,           {0} },
++	{ ClkClientWin,  MODKEY,     Button1, movemouse,      {0} },
++	{ ClkClientWin,  MODKEY,     Button2, togglefloating, {0} },
++	{ ClkClientWin,  MODKEY,     Button3, resizemouse,    {0} },
++	{ ClkTagBar,     0,          Button1, view,           {0} },
++	{ ClkTagBar,     0,          Button3, toggleview,     {0} },
++	{ ClkTagBar,     MODKEY,     Button1, tag,            {0} },
++	{ ClkTagBar,     MODKEY,     Button3, toggletag,      {0} },
++    // { ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd }},
+ };
+-
+diff --git a/config.mk b/config.mk
+index 982dc21..aff4b28 100644
+--- a/config.mk
++++ b/config.mk
+@@ -28,7 +28,7 @@ LIBS = -L${X11LIB} -lX11 ${XINERAMALIBS} ${FREETYPELIBS}
+ # flags
+ CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE=700L -DVERSION=\"${VERSION}\" ${XINERAMAFLAGS}
+ #CFLAGS   = -g -std=c99 -pedantic -Wall -O0 ${INCS} ${CPPFLAGS}
+-CFLAGS   = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -Os ${INCS} ${CPPFLAGS}
++CFLAGS   = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -O3 ${INCS} ${CPPFLAGS}
+ LDFLAGS  = ${LIBS}
+ 
+ # Solaris
+diff --git a/dwm.c b/dwm.c
+index 604def2..79bc84f 100644
+--- a/dwm.c
++++ b/dwm.c
+@@ -58,7 +58,7 @@
+ 
+ /* enums */
+ enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
+-enum { SchemeNorm, SchemeSel }; /* color schemes */
++enum { SchemeNorm, SchemeSel, SchemeWarn, SchemeUrgent, SchemeReady, SchemeSel2, SchemeNorm2 }; /* color schemes */
+ enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
+        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
+        NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
+@@ -516,6 +516,7 @@ clientmessage(XEvent *e)
+ {
+ 	XClientMessageEvent *cme = &e->xclient;
+ 	Client *c = wintoclient(cme->window);
++  unsigned int i;
+ 
+ 	if (!c)
+ 		return;
+@@ -523,11 +524,17 @@ clientmessage(XEvent *e)
+ 		if (cme->data.l[1] == netatom[NetWMFullscreen]
+ 		|| cme->data.l[2] == netatom[NetWMFullscreen])
+ 			setfullscreen(c, (cme->data.l[0] == 1 /* _NET_WM_STATE_ADD    */
+-				|| (cme->data.l[0] == 2 /* _NET_WM_STATE_TOGGLE */ && !c->isfullscreen)));
++        || cme->data.l[0] == 2 /* _NET_WM_STATE_TOGGLE */));
+ 	} else if (cme->message_type == netatom[NetActiveWindow]) {
+-		if (c != selmon->sel && !c->isurgent)
+-			seturgent(c, 1);
+-	}
++    for (i = 0; i < LENGTH(tags) && !((1 << i) & c->tags); i++);
++    if (i < LENGTH(tags)) {
++      const Arg a = {.ui = 1 << i};
++      selmon = c->mon;
++      view(&a);
++      focus(c);
++      restack(selmon);
++    }
++  }
+ }
+ 
+ void
+@@ -553,7 +560,6 @@ void
+ configurenotify(XEvent *e)
+ {
+ 	Monitor *m;
+-	Client *c;
+ 	XConfigureEvent *ev = &e->xconfigure;
+ 	int dirty;
+ 
+@@ -569,9 +575,6 @@ configurenotify(XEvent *e)
+ 			drw_resize(drw, sw, bh);
+ 			updatebars();
+ 			for (m = mons; m; m = m->next) {
+-				for (c = m->clients; c; c = c->next)
+-					if (c->isfullscreen)
+-						resizeclient(c, m->mx, m->my, m->mw, m->mh);
+ 				XMoveResizeWindow(dpy, m->barwin, m->wx, m->by, m->ww, bh);
+ 			}
+ 			focus(NULL);
+@@ -700,10 +703,14 @@ dirtomon(int dir)
+ void
+ drawbar(Monitor *m)
+ {
+-	int x, w, tw = 0;
++  int x, w, tw = 0, mw, ew = 0;
+ 	int boxs = drw->fonts->h / 9;
+ 	int boxw = drw->fonts->h / 6 + 2;
+-	unsigned int i, occ = 0, urg = 0;
++  unsigned int i, occ = 0, urg = 0, n = 0;
++	char *ts = stext;
++	char *tp = stext;
++	int tx = 0;
++	char ctmp;
+ 	Client *c;
+ 
+ 	if (!m->showbar)
+@@ -713,10 +720,22 @@ drawbar(Monitor *m)
+ 	if (m == selmon) { /* status is only drawn on selected monitor */
+ 		drw_setscheme(drw, scheme[SchemeNorm]);
+ 		tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
+-		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
++		while (1) {
++			if ((unsigned int)*ts > LENGTH(colors)) { ts++; continue ; }
++			ctmp = *ts;
++			*ts = '\0';
++      drw_text(drw, m->ww - tw + tx, 0, sw , bh, 0, tp, 0);
++			tx += TEXTW(tp) - lrpad + 5;
++			if (ctmp == '\0') { break; }
++			drw_setscheme(drw, scheme[(unsigned int)(ctmp-1)]);
++			*ts = ctmp;
++			tp = ++ts;
++		}
+ 	}
+ 
+ 	for (c = m->clients; c; c = c->next) {
++    if (ISVISIBLE(c))
++      n++;
+ 		occ |= c->tags;
+ 		if (c->isurgent)
+ 			urg |= c->tags;
+@@ -724,7 +743,12 @@ drawbar(Monitor *m)
+ 	x = 0;
+ 	for (i = 0; i < LENGTH(tags); i++) {
+ 		w = TEXTW(tags[i]);
+-		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
++
++    if( m == selmon)
++      drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
++    else
++      drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeNorm : SchemeNorm]);
++
+ 		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
+ 		if (occ & 1 << i)
+ 			drw_rect(drw, x + boxs, boxs, boxw, boxw,
+@@ -737,15 +761,39 @@ drawbar(Monitor *m)
+ 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
+ 
+ 	if ((w = m->ww - tw - x) > bh) {
+-		if (m->sel) {
+-			drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
+-			drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
+-			if (m->sel->isfloating)
+-				drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
+-		} else {
+-			drw_setscheme(drw, scheme[SchemeNorm]);
+-			drw_rect(drw, x, 0, w, bh, 1, 1);
+-		}
++		if (n > 0) {
++			tw = TEXTW(m->sel->name) + lrpad;
++			mw = (tw >= w || n == 1) ? 0 : (w - tw) / (n - 1);
++
++			i = 0;
++			for (c = m->clients; c; c = c->next) {
++				if (!ISVISIBLE(c) || c == m->sel)
++					continue;
++				tw = TEXTW(c->name);
++				if(tw < mw)
++					ew += (mw - tw);
++				else
++					i++;
++			}
++			if (i > 0)
++				mw += ew / i;
++
++			for (c = m->clients; c; c = c->next) {
++				if (!ISVISIBLE(c))
++					continue;
++				tw = MIN(m->sel == c ? w : mw, TEXTW(c->name));
++
++				drw_setscheme(drw, scheme[m == selmon && m->sel == c ? SchemeSel2 : SchemeNorm2]);
++				if (tw > lrpad / 2)
++					drw_text(drw, x, 0, tw, bh, lrpad / 2, c->name, 0);
++				if (c->isfloating)
++					drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
++				x += tw;
++				w -= tw;
++			}
++   }
++		drw_setscheme(drw, scheme[SchemeNorm]);
++		drw_rect(drw, x, 0, w, bh, 1, 1);
+ 	}
+ 	drw_map(drw, m->barwin, 0, 0, m->ww, bh);
+ }
+@@ -791,26 +839,40 @@ expose(XEvent *e)
+ void
+ focus(Client *c)
+ {
+-	if (!c || !ISVISIBLE(c))
+-		for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext);
+-	if (selmon->sel && selmon->sel != c)
+-		unfocus(selmon->sel, 0);
+-	if (c) {
+-		if (c->mon != selmon)
+-			selmon = c->mon;
+-		if (c->isurgent)
+-			seturgent(c, 0);
+-		detachstack(c);
+-		attachstack(c);
+-		grabbuttons(c, 1);
+-		XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
+-		setfocus(c);
+-	} else {
+-		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
+-		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+-	}
+-	selmon->sel = c;
+-	drawbars();
++    if (!c || !ISVISIBLE(c))
++        for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext);
++    if (selmon->sel && selmon->sel != c)
++        unfocus(selmon->sel, 0);
++    if (c) {
++        if (c->mon != selmon)
++            selmon = c->mon;
++        if (c->isurgent)
++            seturgent(c, 0);
++        detachstack(c);
++        attachstack(c);
++        grabbuttons(c, 1);
++        XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
++        setfocus(c);
++
++        // -----------------------
++        // NEW: handle floating stacking
++        Client *cf;
++        if (!c->isfloating) {
++            // If focusing a tiled window, push all floats behind
++            for (cf = selmon->clients; cf; cf = cf->next)
++                if (cf->isfloating)
++                    XLowerWindow(dpy, cf->win);
++        } else {
++            // If focusing a float, raise it on top
++            XRaiseWindow(dpy, c->win);
++        }
++        // -----------------------
++    } else {
++        XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
++        XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
++    }
++    selmon->sel = c;
++    drawbars();
+ }
+ 
+ /* there are some broken focus acquiring clients needing extra handling */
+@@ -1156,8 +1218,6 @@ movemouse(const Arg *arg)
+ 
+ 	if (!(c = selmon->sel))
+ 		return;
+-	if (c->isfullscreen) /* no support moving fullscreen windows by mouse */
+-		return;
+ 	restack(selmon);
+ 	ocx = c->x;
+ 	ocy = c->y;
+@@ -1489,24 +1549,10 @@ setfullscreen(Client *c, int fullscreen)
+ 		XChangeProperty(dpy, c->win, netatom[NetWMState], XA_ATOM, 32,
+ 			PropModeReplace, (unsigned char*)&netatom[NetWMFullscreen], 1);
+ 		c->isfullscreen = 1;
+-		c->oldstate = c->isfloating;
+-		c->oldbw = c->bw;
+-		c->bw = 0;
+-		c->isfloating = 1;
+-		resizeclient(c, c->mon->mx, c->mon->my, c->mon->mw, c->mon->mh);
+-		XRaiseWindow(dpy, c->win);
+ 	} else if (!fullscreen && c->isfullscreen){
+ 		XChangeProperty(dpy, c->win, netatom[NetWMState], XA_ATOM, 32,
+ 			PropModeReplace, (unsigned char*)0, 0);
+ 		c->isfullscreen = 0;
+-		c->isfloating = c->oldstate;
+-		c->bw = c->oldbw;
+-		c->x = c->oldx;
+-		c->y = c->oldy;
+-		c->w = c->oldw;
+-		c->h = c->oldh;
+-		resizeclient(c, c->x, c->y, c->w, c->h);
+-		arrange(c->mon);
+ 	}
+ }
+ 
+@@ -1637,7 +1683,7 @@ showhide(Client *c)
+ 	if (ISVISIBLE(c)) {
+ 		/* show clients top down */
+ 		XMoveWindow(dpy, c->win, c->x, c->y);
+-		if ((!c->mon->lt[c->mon->sellt]->arrange || c->isfloating) && !c->isfullscreen)
++    if  (!c->mon->lt[c->mon->sellt]->arrange || c->isfloating)
+ 			resize(c, c->x, c->y, c->w, c->h, 0);
+ 		showhide(c->snext);
+ 	} else {
+@@ -1735,8 +1781,6 @@ togglefloating(const Arg *arg)
+ {
+ 	if (!selmon->sel)
+ 		return;
+-	if (selmon->sel->isfullscreen) /* no support for fullscreen windows */
+-		return;
+ 	selmon->sel->isfloating = !selmon->sel->isfloating || selmon->sel->isfixed;
+ 	if (selmon->sel->isfloating)
+ 		resize(selmon->sel, selmon->sel->x, selmon->sel->y,
+@@ -2027,6 +2071,17 @@ updatetitle(Client *c)
+ 		gettextprop(c->win, XA_WM_NAME, c->name, sizeof c->name);
+ 	if (c->name[0] == '\0') /* hack to mark broken clients */
+ 		strcpy(c->name, broken);
++
++  // Use the last word of the name
++  char *p = strrchr(c->name, ' ');
++  if(p && p+1){
++    int i=0;
++    while(p[i+1] != '\0'){
++      c->name[i]=p[i+1];
++      i++;
++    }
++    c->name[i]='\0';
++  }
+ }
+ 
+ void
+diff --git a/install.sh b/install.sh
+new file mode 100755
+index 0000000..0d4001f
+--- /dev/null
++++ b/install.sh
+@@ -0,0 +1,30 @@
++#!/usr/bin/env bash
++set -euo pipefail
++# set -x
++: "${SCRIPTS_DIR:?Variable is not set}"
++: "${DESTDIR:?Variable is not set}"
++
++USE_DEFAULT=${1:-1}
++SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
++cd "$SCRIPT_DIR" || exit 1
++
++if [[ $USE_DEFAULT == 1 ]] || [[ "$1" == --build ]]; then
++
++	# Substitute
++	cp config.def.h config.h
++
++	sed -i "s|\$SCRIPTS_DIR|$SCRIPTS_DIR|g" config.h
++
++	make clean
++
++	make || exit 1
++fi
++
++if [[ $USE_DEFAULT == 1 ]] || [[ "$1" == --install ]]; then
++
++	make install DESTDIR="$DESTDIR" || exit 1
++
++	git rev-parse --short HEAD >commit.txt
++
++	cat commit.txt
++fi
+diff --git a/layouts.c b/layouts.c
+new file mode 100644
+index 0000000..725a253
+--- /dev/null
++++ b/layouts.c
+@@ -0,0 +1,27 @@
++void
++grid(Monitor *m) {
++ unsigned int i, n, cx, cy, cw, ch, aw, ah, cols, rows;
++ Client *c;
++
++ for(n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next))
++   n++;
++
++ /* grid dimensions */
++ for(rows = 0; rows <= n/2; rows++)
++   if(rows*rows >= n)
++     break;
++ cols = (rows && (rows - 1) * rows >= n) ? rows - 1 : rows;
++
++ /* window geoms (cell height/width) */
++ ch = m->wh / (rows ? rows : 1);
++ cw = m->ww / (cols ? cols : 1);
++ for(i = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next)) {
++   cx = m->wx + (i / rows) * cw;
++   cy = m->wy + (i % rows) * ch;
++   /* adjust height/width of last row/column's windows */
++   ah = ((i + 1) % rows == 0) ? m->wh - ch * rows : 0;
++   aw = (i >= rows * (cols - 1)) ? m->ww - cw * cols : 0;
++   resize(c, cx, cy, cw - 2 * c->bw + aw, ch - 2 * c->bw + ah, False);
++   i++;
++ }
++}
+diff --git a/movestack.c b/movestack.c
+new file mode 100644
+index 0000000..8d22a6b
+--- /dev/null
++++ b/movestack.c
+@@ -0,0 +1,48 @@
++void
++movestack(const Arg *arg) {
++	Client *c = NULL, *p = NULL, *pc = NULL, *i;
++
++	if(arg->i > 0) {
++		/* find the client after selmon->sel */
++		for(c = selmon->sel->next; c && (!ISVISIBLE(c) || c->isfloating); c = c->next);
++		if(!c)
++			for(c = selmon->clients; c && (!ISVISIBLE(c) || c->isfloating); c = c->next);
++
++	}
++	else {
++		/* find the client before selmon->sel */
++		for(i = selmon->clients; i != selmon->sel; i = i->next)
++			if(ISVISIBLE(i) && !i->isfloating)
++				c = i;
++		if(!c)
++			for(; i; i = i->next)
++				if(ISVISIBLE(i) && !i->isfloating)
++					c = i;
++	}
++	/* find the client before selmon->sel and c */
++	for(i = selmon->clients; i && (!p || !pc); i = i->next) {
++		if(i->next == selmon->sel)
++			p = i;
++		if(i->next == c)
++			pc = i;
++	}
++
++	/* swap c and selmon->sel selmon->clients in the selmon->clients list */
++	if(c && c != selmon->sel) {
++		Client *temp = selmon->sel->next==c?selmon->sel:selmon->sel->next;
++		selmon->sel->next = c->next==selmon->sel?c:c->next;
++		c->next = temp;
++
++		if(p && p != c)
++			p->next = c;
++		if(pc && pc != selmon->sel)
++			pc->next = selmon->sel;
++
++		if(selmon->sel == selmon->clients)
++			selmon->clients = c;
++		else if(c == selmon->clients)
++			selmon->clients = selmon->sel;
++
++		arrange(selmon);
++	}
++}
+diff --git a/shiftview.c b/shiftview.c
+new file mode 100644
+index 0000000..e82053a
+--- /dev/null
++++ b/shiftview.c
+@@ -0,0 +1,19 @@
++/** Function to shift the current view to the left/right
++ *
++ * @param: "arg->i" stores the number of tags to shift right (positive value)
++ *          or left (negative value)
++ */
++void
++shiftview(const Arg *arg) {
++	Arg shifted;
++
++	if(arg->i > 0) // left circular shift
++		shifted.ui = (selmon->tagset[selmon->seltags] << arg->i)
++		   | (selmon->tagset[selmon->seltags] >> (LENGTH(tags) - arg->i));
++
++	else // right circular shift
++		shifted.ui = selmon->tagset[selmon->seltags] >> (- arg->i)
++		   | selmon->tagset[selmon->seltags] << (LENGTH(tags) + arg->i);
++
++	view(&shifted);
++}

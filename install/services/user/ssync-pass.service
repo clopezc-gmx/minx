@@ -1,0 +1,7 @@
+[Unit]
+Description=Synchronize password store
+
+[Service]
+Type=oneshot
+Environment="PATH=/opt/minx/runtime/user/bin/:/usr/local/bin:/usr/bin:/bin:%h/.local/bin"
+ExecStart= /opt/minx/runtime/user/bin/ssync.sh pass

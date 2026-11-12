@@ -1,0 +1,331 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC1091 # path is resolved at runtime.
+
+# lockscreen.sh
+# Universal lock script for manual, idle, or pre-suspend triggers
+#
+# The background script (BGS) owns the process-table contract.
+# This script deliberately knows nothing about the commands being run.
+#
+# Table format:
+#
+#   name pid logfile
+#
+# Fields are separated by whitespace (spaces and/or tabs).
+# The name is informational only.
+# The PID identifies the process to manage.
+# The logfile contains output produced by that background operation.
+#
+# Avoid "set -e" here: explicit error handling makes control flow predictable.
+# Avoid "set -o pipefail" here: pipeline status is handled explicitly via PIPESTATUS.
+
+set -u
+# set -x
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+
+source "$SCRIPT_DIR/../lib/minx_core.sh"
+source "$SCRIPT_DIR/../lib/minx_variables.sh" || exit 1
+
+if ! minx_has_display; then
+	printf '%s\n' "minx-launcher requires X running." >&2
+	return 1
+fi
+
+#--------------------------------------------------
+# Global variables
+#--------------------------------------------------
+
+readonly LOG_FILE="$MINX_STATE_DIR/logs/lockscreen.log"
+readonly LOCK_FILE="$MINX_STATE_DIR/lockscreen.lock"
+readonly TBL_FILE="$MINX_STATE_DIR/lockscreen.tbl"
+readonly MSG_PATH="$MINX_USER_DIR/data/messages.txt"
+
+#--------------------------------------------------
+# Helpers
+#--------------------------------------------------
+
+_read_tbl() { # {{{
+	local file="$1"
+	local -n _pids="$2"
+	local -n _logs="$3"
+
+	local name
+	local pid
+	local log
+
+	while read -r name pid log; do
+		[[ -n "$name" && -n "$pid" ]] || continue
+
+		# A PID must be numeric before it is ever used in /proc paths
+		# or process-control commands.
+		[[ "$pid" =~ ^[0-9]+$ ]] || {
+			minx_printmsg "Ignoring invalid PID in table: $pid"
+			continue
+		}
+
+		_pids["$name"]="$pid"
+		_logs["$name"]="$log"
+	done <"$file"
+} # }}}
+
+_pid_exists() { # {{{
+	local pid="$1"
+
+	[[ "$pid" =~ ^[0-9]+$ ]] || return 1
+	[[ -d "/proc/$pid" ]] || return 1
+
+	kill -0 "$pid" 2>/dev/null
+} # }}}
+
+_pid_start_time() { # {{{
+	local pid="$1"
+
+	[[ -r "/proc/$pid/stat" ]] || return 1
+
+	# /proc/<pid>/stat has spaces in the command name, enclosed in
+	# parentheses. The process start time is field 22, so remove the
+	# prefix through the final ')' first and then count fields.
+	local stat
+	local rest
+
+	stat="$(<"/proc/$pid/stat")" || return 1
+
+	rest="${stat##*) }"
+
+	# rest starts at field 3 (state), therefore starttime (field 22)
+	# is field 20 in this remainder.
+	set -- "$rest"
+
+	printf '%s\n' "${20:-}"
+} # }}}
+
+_pid_matches_table_entry() { # {{{
+	local pid="$1"
+	local expected_start_time="${2:-}"
+
+	_pid_exists "$pid" || return 1
+
+	# If the table does not contain a start time, PID existence is the
+	# best generic check available.
+	[[ -n "$expected_start_time" ]] || return 0
+
+	local actual_start_time
+	actual_start_time="$(_pid_start_time "$pid")" || return 1
+
+	[[ "$actual_start_time" == "$expected_start_time" ]]
+} # }}}
+
+_kill_pids() { # {{{
+	# shellcheck disable=SC2178 # nameref to an array
+	local -n _pids="$1"
+
+	local name
+	local pid
+
+	for name in "${!_pids[@]}"; do
+		pid="${_pids[$name]}"
+
+		if _pid_exists "$pid"; then
+			minx_printmsg "kill $name (PID $pid)..."
+			kill "$pid" 2>/dev/null || true
+		else
+			minx_printmsg "$name (PID $pid) is stale."
+		fi
+	done
+
+	# Give killed processes a moment to exit and release their resources,
+	# especially locks/resources owned by background operations.
+	for name in "${!_pids[@]}"; do
+		pid="${_pids[$name]}"
+
+		if ! _pid_exists "$pid"; then
+			continue
+		fi
+
+		for _ in {1..25}; do
+			_pid_exists "$pid" || break
+			sleep 0.2
+		done
+
+		if _pid_exists "$pid"; then
+			minx_printmsg "$name (PID $pid) did not exit after 5 seconds."
+		fi
+	done
+} # }}}
+
+_wait_pids() { # {{{
+	# shellcheck disable=SC2178 # nameref to an array
+	local -n _pids="$1"
+
+	local name
+	local pid
+
+	for name in "${!_pids[@]}"; do
+		pid="${_pids[$name]}"
+
+		minx_printmsg "wait $name (PID $pid)..."
+
+		while _pid_exists "$pid"; do
+			sleep 0.2
+		done
+	done
+} # }}}
+
+_get_lockscreen_message() { # {{{
+	if [[ -f "$MSG_PATH" ]]; then
+		shuf -n 1 "$MSG_PATH"
+	else
+		printf '%s\n' 'Screen locked by lockscreen.sh'
+	fi
+} # }}}
+
+_get_lockscreen_status() { # {{{
+	local enabled=1
+
+	if [[ -f "$MINX_STATE_LOCKSCREEN" ]]; then
+		read -r enabled <"$MINX_STATE_LOCKSCREEN" || true
+	fi
+
+	[[ -n "$enabled" ]] || enabled=1
+
+	printf '%s\n' "$enabled"
+} # }}}
+
+_run_background_script() { # {{{
+	if ((EUID == 0)); then
+		runuser -u "$USER" -- \
+			env _TBL_FILE="$TBL_FILE" \
+			bash "$MINX_USER_LOCKSCREEN_BGS" "$@"
+	else
+		_TBL_FILE="$TBL_FILE" \
+			bash "$MINX_USER_LOCKSCREEN_BGS" "$@"
+	fi
+} # }}}
+
+_append_background_logs() { # {{{
+	# shellcheck disable=SC2178 # nameref to an array
+	local -n _logs="$1"
+
+	local name
+	local logfile
+
+	for name in "${!_logs[@]}"; do
+		logfile="${_logs[$name]}"
+
+		{
+
+			if [[ -f "$logfile" ]]; then
+				cat "$logfile"
+			else
+				printf '%s\n' 'Log file does not exist.'
+			fi
+
+		} >>"$LOG_FILE"
+	done
+} # }}}
+
+#--------------------------------------------------
+# Main
+#--------------------------------------------------
+
+main() { # {{{
+
+	# : >"$LOG_FILE"
+	{
+		local marker="********************************************************************************"
+		printf "\n%s" "$marker"
+		printf "\n%s\n" "$(date)"
+		cat "/opt/minx/version"
+		printf "%s\n" "$marker"
+	} >>"$LOG_FILE"
+
+	if [[ "$(_get_lockscreen_status)" == "off" ]]; then
+		minx_printmsg "Lockscreen is disabled via status flag"
+		return 0
+	fi
+
+	#--------------------------------------------------
+	# Create lock
+	#--------------------------------------------------
+
+	exec 9>"$LOCK_FILE"
+
+	if ! flock -n 9; then
+		return 0
+	fi
+
+	#--------------------------------------------------
+	# Screen lock
+	#--------------------------------------------------
+
+	minx_printmsg "Starting screen lock"
+
+	slock &
+
+	sleep 0.2
+
+	#--------------------------------------------------
+	# Turn off screen
+	#--------------------------------------------------
+
+	xset dpms force off
+
+	#--------------------------------------------------
+	# Run background scripts
+	#--------------------------------------------------
+
+	if [[ -f "$MINX_USER_LOCKSCREEN_BGS" ]]; then
+
+		declare -A pids=()
+		declare -A logs=()
+
+		minx_printmsg "Starting background scripts"
+
+		# If the previous hook left a table behind, terminate the
+		# processes represented by that table before starting new ones.
+		if [[ -f "$TBL_FILE" ]]; then
+			minx_printmsg "Existing background table found."
+
+			_read_tbl "$TBL_FILE" pids logs
+			_kill_pids pids
+
+			rm -f "$TBL_FILE"
+		fi
+
+		# The hook starts all background operations and returns as soon
+		# as the process table has been written.
+		if ! _run_background_script "$@"; then
+			minx_printmsg "Background script failed: $MINX_USER_LOCKSCREEN_BGS"
+			return 1
+		fi
+
+		[[ -f "$TBL_FILE" ]] || {
+			minx_printmsg "Background script did not create table: $TBL_FILE"
+			return 1
+		}
+
+		# shellcheck disable=SC2034 # populated and consumed indirectly
+		pids=()
+
+		# shellcheck disable=SC2034 # populated and consumed indirectly
+		logs=()
+
+		_read_tbl "$TBL_FILE" pids logs
+
+		_wait_pids pids
+
+		minx_printmsg "All background scripts finished."
+
+		_append_background_logs logs
+
+		rm -f "$TBL_FILE"
+
+	else
+		minx_printmsg "Background script not found: $MINX_USER_LOCKSCREEN_BGS"
+	fi
+
+	minx_printmsg "Lock script finished"
+} # }}}
+
+minx_run_and_log "$LOG_FILE" main "$@"

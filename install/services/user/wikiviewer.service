@@ -1,0 +1,29 @@
+[Unit]
+Description=Flask WikiView Service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.wikiviewer
+
+ExecStart=%h/repos/personal/mytools.d/wikiviewer/.venv/bin/python \
+    %h/repos/personal/mytools.d/wikiviewer/main.py
+
+Environment=DATA_PATH=%h/.wikiviewer
+Environment=PORT=5000
+Environment=HOST=127.0.0.1
+Environment=MACHINE_NAME=%H:5000
+
+Restart=always
+RestartSec=5
+
+TimeoutStartSec=30
+TimeoutStopSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wikiviewer
+
+LimitNOFILE=4096
+
+[Install]
+WantedBy=default.target

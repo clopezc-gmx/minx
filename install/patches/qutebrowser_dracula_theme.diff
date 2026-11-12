@@ -1,0 +1,107 @@
+diff --git a/.gitignore b/.gitignore
+index 4949fe8..8a2a693 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,2 +1,3 @@
+ /bookmarks/
+ quickmarks
++__pycache__/
+diff --git a/draw.py b/draw.py
+index a1079a0..cd25f66 100644
+--- a/draw.py
++++ b/draw.py
+@@ -16,7 +16,15 @@ def blood(c, options = {}):
+         'pink': '#ff79c6',
+         'purple': '#bd93f9',
+         'red': '#ff5555',
+-        'yellow': '#f1fa8c'
++        'yellow': '#f1fa8c',
++        # Override
++        'background': '#262626',
++        'background-alt': '#262626',
++        'background-attention': '#50fa7b',
++        'selection': '#005577',
++        'foreground': '#f8f8f2',
++        'foreground-alt': '#e0e0e0',
++        'foreground-attention': '#000000'
+     }   
+ 
+     spacing = options.get('spacing', {
+@@ -96,10 +104,10 @@ def blood(c, options = {}):
+ 
+     ## Background color for hints. Note that you can use a `rgba(...)` value
+     ## for transparency.
+-    c.colors.hints.bg = palette['background']
++    c.colors.hints.bg = palette['orange']
+ 
+     ## Font color for hints.
+-    c.colors.hints.fg = palette['purple']
++    c.colors.hints.fg = palette['foreground-attention']
+ 
+     ## Hints
+     c.hints.border = '1px solid ' + palette['background-alt']
+@@ -180,7 +188,7 @@ def blood(c, options = {}):
+     c.colors.statusbar.command.private.fg = palette['foreground-alt']
+ 
+     ## Background color of the statusbar in insert mode.
+-    c.colors.statusbar.insert.bg = palette['background-attention']
++    c.colors.statusbar.insert.bg = palette['green']
+ 
+     ## Foreground color of the statusbar in insert mode.
+     c.colors.statusbar.insert.fg = palette['foreground-attention']
+@@ -229,11 +237,11 @@ def blood(c, options = {}):
+ 
+     ## Background color of the tab bar.
+     ## Type: QtColor
+-    c.colors.tabs.bar.bg = palette['selection']
++    c.colors.tabs.bar.bg = palette['background']
+ 
+     ## Background color of unselected even tabs.
+     ## Type: QtColor
+-    c.colors.tabs.even.bg = palette['selection']
++    c.colors.tabs.even.bg = palette['background']
+ 
+     ## Foreground color of unselected even tabs.
+     ## Type: QtColor
+@@ -262,7 +270,7 @@ def blood(c, options = {}):
+ 
+     ## Background color of unselected odd tabs.
+     ## Type: QtColor
+-    c.colors.tabs.odd.bg = palette['selection']
++    c.colors.tabs.odd.bg = palette['background']
+ 
+     ## Foreground color of unselected odd tabs.
+     ## Type: QtColor
+@@ -270,7 +278,7 @@ def blood(c, options = {}):
+ 
+     # ## Background color of selected even tabs.
+     # ## Type: QtColor
+-    c.colors.tabs.selected.even.bg = palette['background']
++    c.colors.tabs.selected.even.bg = palette['selection']
+ 
+     # ## Foreground color of selected even tabs.
+     # ## Type: QtColor
+@@ -278,7 +286,7 @@ def blood(c, options = {}):
+ 
+     # ## Background color of selected odd tabs.
+     # ## Type: QtColor
+-    c.colors.tabs.selected.odd.bg = palette['background']
++    c.colors.tabs.selected.odd.bg = palette['selection']
+ 
+     # ## Foreground color of selected odd tabs.
+     # ## Type: QtColor
+@@ -289,3 +297,14 @@ def blood(c, options = {}):
+     c.tabs.indicator.width = 1
+     c.tabs.favicons.scale = 1
+ 
++    # Unselected pinned tabs
++    c.colors.tabs.pinned.even.bg = palette['background']
++    c.colors.tabs.pinned.even.fg = palette['foreground']
++    c.colors.tabs.pinned.odd.bg  = palette['background']
++    c.colors.tabs.pinned.odd.fg  = palette['foreground']
++
++    # Selected pinned tabs
++    c.colors.tabs.pinned.selected.even.bg = palette['selection']
++    c.colors.tabs.pinned.selected.even.fg = palette['foreground']
++    c.colors.tabs.pinned.selected.odd.bg  = palette['selection']
++    c.colors.tabs.pinned.selected.odd.fg  = palette['foreground']

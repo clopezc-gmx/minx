@@ -1,0 +1,20 @@
+# shutdown-pre@.service
+
+[Unit]
+Description=MINX actions before %i
+DefaultDependencies=no
+After=local-fs.target
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+User=@TARGET_USER@
+Group=@TARGET_USER@
+Environment=HOME=@TARGET_HOME@
+Environment=USER=@TARGET_USER@
+Environment=LOGNAME=@TARGET_USER@
+Environment=PATH=@TARGET_HOME@/.local/bin:/usr/local/bin:/usr/bin:/bin:/opt/minx/timewarrior/bin
+WorkingDirectory=@TARGET_HOME@
+ExecStart=/opt/minx/runtime/user/hooks/system_shutdown_pre.sh %i
+TimeoutStartSec=30

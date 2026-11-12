@@ -1,0 +1,96 @@
+diff --git a/.gitignore b/.gitignore
+index 4c303b0..0df8787 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,30 +1,5 @@
+-# Object files
++sent
++config.h
+ *.o
+-*.ko
+-*.obj
+-*.elf
+-
+-# Libraries
+-*.lib
+-*.a
+-
+-# Shared objects (inc. Windows DLLs)
+-*.dll
+-*.so
+-*.so.*
+-*.dylib
+-
+-# Executables
+-*.exe
+-*.out
+-*.app
+-*.i*86
+-*.x86_64
+-*.hex
+-/sent
+-
+-# vim
++*.tar.gz
+ *.swp
+-*~
+-
+-config.h
+diff --git a/commit.txt b/commit.txt
+new file mode 100644
+index 0000000..d5653f8
+--- /dev/null
++++ b/commit.txt
+@@ -0,0 +1 @@
++882d54c
+diff --git a/config.def.h b/config.def.h
+index 60eb376..8a50a10 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -1,6 +1,8 @@
+ /* See LICENSE file for copyright and license details. */
+ 
+ static char *fontfallbacks[] = {
++  // "Inconsolata:antialias=true:autohint=true",
++  "monospace",
+ 	"dejavu sans",
+ 	"roboto",
+ 	"ubuntu",
+@@ -9,8 +11,8 @@ static char *fontfallbacks[] = {
+ #define FONTSZ(x) ((int)(10.0 * powf(1.1288, (x)))) /* x in [0, NUMFONTSCALES-1] */
+ 
+ static const char *colors[] = {
+-	"#000000", /* foreground color */
+-	"#FFFFFF", /* background color */
++	"#f8f8f2", /* foreground color */
++	"#262626", /* background color */
+ };
+ 
+ static const float linespacing = 1.4;
+diff --git a/install.sh b/install.sh
+new file mode 100755
+index 0000000..369f9c3
+--- /dev/null
++++ b/install.sh
+@@ -0,0 +1,21 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++USE_DEFAULT=${1:-1}
++
++SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
++cd "$SCRIPT_DIR" || exit 1
++
++if [[ $USE_DEFAULT == 1 ]] || [[ "$1" == --build ]]; then
++	make clean
++	make || return 1
++fi
++
++if [[ $USE_DEFAULT == 1 ]] || [[ "$1" == --install ]]; then
++
++	: "${DESTDIR:?Variable is not set}"
++	make install DESTDIR="$DESTDIR" || return 1
++
++	git rev-parse --short HEAD >commit.txt
++	cat commit.txt
++fi

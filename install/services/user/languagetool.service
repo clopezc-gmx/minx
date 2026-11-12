@@ -1,0 +1,23 @@
+[Unit]
+Description=LanguageTool grammar checking server
+
+[Service]
+Type=simple
+WorkingDirectory=%h
+
+ExecStart=/usr/bin/java \
+    -cp /opt/minx/languagetool/LanguageTool-6.9-SNAPSHOT/languagetool-server.jar \
+    org.languagetool.server.HTTPServer \
+    --config /opt/minx/languagetool/server.properties \
+    --port 8085 \
+    --allow-origin
+
+Restart=on-failure
+RestartSec=5
+
+SyslogIdentifier=languagetool
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

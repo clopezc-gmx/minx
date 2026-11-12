@@ -1,0 +1,150 @@
+#!/bin/bash
+# shellcheck disable=SC1090,SC1091 # path is resolved at runtime.
+
+set -euo pipefail
+# set -x
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+
+source "$SCRIPT_DIR/../lib/minx_core.sh"
+source "$SCRIPT_DIR/../lib/minx_launcher.sh"
+source "$SCRIPT_DIR/../lib/minx_variables.sh"
+
+if ! minx_has_display; then
+	printf '%s\n' "minx-launcher requires X running." >&2
+	return 1
+fi
+
+if [[ -f "$MINX_USER_TARGETS_FILE" ]]; then
+	source "$MINX_USER_TARGETS_FILE" || exit 1
+fi
+
+_menu() {
+	local selection
+	local options=()
+
+	read -r -a options <<<"${MINX_LAUNCHER_OPTIONS[__root]}"
+
+	selection=$(
+		printf '%s\n' "${options[@]}" |
+			rofi -dmenu -p "minx-launcher"
+	) || return 1
+
+	if [[ -n "$selection" ]]; then
+		main "$selection"
+	else
+		main menu
+	fi
+}
+
+main() {
+	local option="${1:-menu}"
+
+	case "$option" in
+
+	file_explorer)
+		class_name="pcmanfm"
+		fallback_fn=pcmanfm
+
+		minx_run_or_raise \
+			--class "$class_name" \
+			"$fallback_fn"
+		;;
+
+	terminal)
+		session_name="terminal"
+
+		minx_launch_st_tmux_session \
+			"$session_name" \
+			_tmux_cmds_noop
+		;;
+
+	tmux_sessions)
+		minx_select_st_tmux
+		;;
+
+	txtclip)
+		filename="${2:-txtclip}"
+		class_name="${3:-txtclip}"
+		geometry="${4:-120x24+300+140}"
+		notify="${5:---notify}"
+
+		minx_launch_txtclip \
+			"$filename" \
+			"$class_name" \
+			"$geometry" \
+			"$notify"
+		;;
+
+	inkscape)
+		class_name="inkscape"
+		fallback_fn=inkscape
+
+		minx_run_or_raise \
+			--class "$class_name" \
+			"$fallback_fn"
+		;;
+
+	tigervnc)
+		class_name="tigervnc"
+		fallback_fn=tigervnc
+
+		minx_run_or_raise \
+			--class "$class_name" \
+			"$fallback_fn"
+		;;
+
+	nmtui)
+		session_name="nmtui"
+		fallback_fn=nmtui-connect
+
+		minx_run_or_raise_st \
+			"$session_name" \
+			"120x24+300+140" \
+			"$fallback_fn"
+		;;
+
+	menu)
+		_menu
+		;;
+
+	#
+	# user
+	#
+
+	qb_profiles | qb_profile1 | qb_profile2 | qb_profile3 | qb_profile4)
+		minx_require_user_function "$@"
+		;;
+
+	custom1 | custom2)
+		minx_require_user_function "$@"
+		;;
+
+	mail | tt_shell | calendar)
+		minx_require_user_function "$@"
+		;;
+
+	reference | notes | synchronize | maps)
+		minx_require_user_function "$@"
+		;;
+
+	remote1 | remote2)
+		minx_require_user_function "$@"
+		;;
+
+	otpmenu | passmenu)
+		minx_require_user_function "$@"
+		;;
+
+	*)
+		printf '\n%s\n' "Try with a valid argument:"
+
+		# shellcheck disable=SC2086 # intentional word splitting for option list
+		printf '%s\n' ${MINX_LAUNCHER_OPTIONS[__root]}
+
+		exit 1
+		;;
+	esac
+}
+
+main "$@"

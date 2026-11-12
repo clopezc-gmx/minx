@@ -1,0 +1,51 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..017ee5b
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,7 @@
++dmenu
++stest
++config.h
++tags
++*.o
++*.tar.gz
++*.swp
+diff --git a/commit.txt b/commit.txt
+new file mode 100644
+index 0000000..291bd68
+--- /dev/null
++++ b/commit.txt
+@@ -0,0 +1 @@
++61e0072
+diff --git a/config.def.h b/config.def.h
+index 1edb647..2f1fc43 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -3,9 +3,8 @@
+ 
+ static int topbar = 1;                      /* -b  option; if 0, dmenu appears at bottom     */
+ /* -fn option overrides fonts[0]; default X11 font or font set */
+-static const char *fonts[] = {
+-	"monospace:size=10"
+-};
++static const char *fonts[] = { "JetBrainsMono Nerd Font Mono:style=Regular:size=10:antialias=true:autohint=true" };
++
+ static const char *prompt      = NULL;      /* -p  option; prompt to the left of input field */
+ static const char *colors[SchemeLast][2] = {
+ 	/*     fg         bg       */
+diff --git a/install.sh b/install.sh
+new file mode 100755
+index 0000000..f627904
+--- /dev/null
++++ b/install.sh
+@@ -0,0 +1,9 @@
++#!/bin/bash
++set -euo pipefail
++
++: "${DESTDIR:?Variable is not set}"
++
++git rev-parse --short HEAD > commit.txt
++make clean
++make
++make install DESTDIR="$DESTDIR"

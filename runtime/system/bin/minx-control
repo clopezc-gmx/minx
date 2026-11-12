@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC1091 # path is resolved at runtime.
+#
+# minx-control
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+source "$SCRIPT_DIR/../lib/minx_core.sh" || exit 1
+source "$SCRIPT_DIR/../lib/minx_control.sh" || exit 1
+
+_menu() {
+
+	if ! minx_has_display; then
+		printf '%s\n' "No display available to launch rofi. Use autocompletion instead." >&2
+		return 1
+	fi
+
+	local selection
+	local options
+
+	local exclude_options=(
+		brightness
+		volume
+		media
+		screenshot
+	)
+
+	options=$(
+		_list_control_options |
+			grep -vxFf <(printf '%s\n' "${exclude_options[@]}")
+	) || return 1
+
+	selection=$(
+		printf '%s\n' "$options" |
+			rofi -dmenu -p "minx-control"
+	) || return 1
+
+	if [[ -n "$selection" ]]; then
+		main "$selection"
+	else
+		main menu
+	fi
+}
+
+main() {
+	local command="${1:-}"
+
+	if [[ $# -gt 0 ]]; then
+		shift
+	fi
+
+	case "$command" in
+	brightness)
+		minx_brightness "$@"
+		;;
+
+	bluetooth)
+		minx_bluetooth "$@"
+		;;
+
+	display)
+		minx_display "$@"
+		;;
+
+	favorites)
+		minx_favorites "$@"
+		;;
+
+	keyboard)
+		minx_keyboard "$@"
+		;;
+
+	lockscreen)
+		minx_lockscreen "$@"
+		;;
+
+	media)
+		minx_media "$@"
+		;;
+
+	microphone)
+		minx_microphone "$@"
+		;;
+
+	screenshot)
+		minx_screenshot "$@"
+		;;
+
+	sysinfo)
+		minx_sysinfo "$@"
+		;;
+
+	touchpad)
+		minx_touchpad "$@"
+		;;
+
+	volume)
+		minx_volume "$@"
+		;;
+
+	wifi)
+		minx_wifi "$@"
+		;;
+
+	menu)
+		_menu
+		;;
+
+	*)
+		printf '\n%s\n' "Try with a valid argument:" >&2
+		_list_control_options >&2
+		return 1
+		;;
+	esac
+}
+
+main "$@"

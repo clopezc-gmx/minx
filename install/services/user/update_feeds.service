@@ -1,0 +1,7 @@
+[Unit]
+Description=Update Newsboat feeds
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.newsboat
+ExecStart=%h/.newsboat/update_feeds.sh

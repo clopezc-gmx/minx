@@ -1,0 +1,46 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..5d4ffeb
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,6 @@
++slock
++config.h
++*.o
++*.tar.gz
++*.swp
++tags
+diff --git a/commit.txt b/commit.txt
+new file mode 100644
+index 0000000..59cf893
+--- /dev/null
++++ b/commit.txt
+@@ -0,0 +1 @@
++65cb721
+diff --git a/install.sh b/install.sh
+new file mode 100755
+index 0000000..369f9c3
+--- /dev/null
++++ b/install.sh
+@@ -0,0 +1,21 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++USE_DEFAULT=${1:-1}
++
++SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
++cd "$SCRIPT_DIR" || exit 1
++
++if [[ $USE_DEFAULT == 1 ]] || [[ "$1" == --build ]]; then
++	make clean
++	make || return 1
++fi
++
++if [[ $USE_DEFAULT == 1 ]] || [[ "$1" == --install ]]; then
++
++	: "${DESTDIR:?Variable is not set}"
++	make install DESTDIR="$DESTDIR" || return 1
++
++	git rev-parse --short HEAD >commit.txt
++	cat commit.txt
++fi
