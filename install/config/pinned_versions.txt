@@ -69,3 +69,6 @@ url_nvm=https://raw.githubusercontent.com/nvm-sh/nvm
 version_nodejs=24.21.0
 
 version_shfmt=v3.14.1
+
+version_calix=0.9.0
+url_calix=https://github.com/ianswope/calix/releases

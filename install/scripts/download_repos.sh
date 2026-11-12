@@ -117,6 +117,15 @@ _download_nvm() { # {{{
 	_download_file "$url" "$destination" || return 1
 } # }}}
 
+_download_calix() { # {{{
+	local version="${MINX_PINNED_VERSIONS[version_calix]}"
+	local archive="calix-${version}-linux-x86_64.tar.gz"
+	local url="${MINX_PINNED_VERSIONS[url_calix]}/download/v${version}/${archive}"
+	local destination="$MINX_REPOS_DIR/downloads/calix/$archive"
+
+	_download_file "$url" "$destination" || return 1
+} # }}}
+
 _download_repositories() { # {{{
 
 	_download_repo ctags
@@ -143,6 +152,7 @@ _download_files() { # {{{
 	_download_jetbrains_mono
 	_download_go
 	_download_nvm
+	_download_calix
 } # }}}
 
 main() { # {{{
@@ -171,6 +181,7 @@ main() { # {{{
 		jetbrains_mono
 		go
 		nvm
+		calix
 	)
 
 	local -a pids=()
@@ -205,6 +216,10 @@ main() { # {{{
 
 			nvm)
 				_download_nvm
+				;;
+
+			calix)
+				_download_calix
 				;;
 			esac
 		) >"$job_dir/$job.log" 2>&1 &

@@ -624,6 +624,16 @@ _install_desktop() {
 		libasound2
 	)
 
+	local calix=(
+		curl
+		jq
+		tar
+		libgtk-4-1
+		libadwaita-1-0
+		xdg-utils
+		gnome-keyring
+	)
+
 	local jdk
 	jdk="$(_first_available openjdk-25-jdk openjdk-21-jdk)" || {
 		printf 'No OpenJDK JDK package found.\n' >&2
@@ -639,6 +649,7 @@ _install_desktop() {
 		"${removable_media[@]}" \
 		"${apps[@]}" \
 		"${qutebrowser_libs[@]}" \
+		"${calix[@]}" \
 		"$jdk"
 
 	_install_gpu

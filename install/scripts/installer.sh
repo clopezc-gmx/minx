@@ -1332,6 +1332,74 @@ minx_install_spotify() {
 	printf '%s\n' "=> Done"
 }
 
+minx_install_calix() ( # {{{
+	local version="${MINX_PINNED_VERSIONS[version_calix]}"
+	local release_tag="v${version}"
+	local archive_name="calix-${version}-linux-x86_64.tar.gz"
+	local archive_dir="calix-${version}-linux-x86_64"
+	local download_url="${MINX_PINNED_VERSIONS[url_calix]}/download/${release_tag}/${archive_name}"
+
+	local download_dir="$MINX_REPOS_DIR/downloads/calix"
+	local dst_file="$download_dir/$archive_name"
+	local tmp_dir
+	local bin_dir="$HOME/.local/bin"
+
+	minx_header "L1" "[args: $APP $ACTION] Install Calix $version"
+
+	# Calix installs into the user's ~/.local directory.
+	minx_assert_is_non_root "$0" || return 1
+
+	if [[ -x "$bin_dir/calix" ]]; then
+		if "$bin_dir/calix" --version 2>/dev/null | grep -q "$version"; then
+			printf '%s\n' "=> Calix $version already installed."
+			return 0
+		fi
+	fi
+
+	mkdir -p -- "$download_dir" || return 1
+
+	tmp_dir="$(mktemp -d)" || return 1
+	trap 'rm -rf -- "$tmp_dir"' EXIT
+
+	if [[ -f "$dst_file" ]]; then
+		printf '=> Using existing archive: %s\n' "$dst_file"
+	else
+		minx_download_file "$download_url" "$dst_file" || {
+			rm -f -- "$dst_file"
+			return 1
+		}
+	fi
+
+	printf '%s\n' "=> Extracting ..."
+
+	tar -xzf "$dst_file" -C "$tmp_dir" || return 1
+
+	local install_dir="$tmp_dir/$archive_dir"
+
+	[[ -x "$install_dir/install.sh" ]] || {
+		printf '%s\n' "ERROR: Calix install.sh not found." >&2
+		return 1
+	}
+
+	printf '%s\n' "=> Installing ..."
+
+	(
+		cd "$install_dir"
+		./install.sh
+	) || return 1
+
+	printf '%s\n' "=> Verifying installation ..."
+
+	[[ -x "$bin_dir/calix" ]] || {
+		printf '%s\n' "ERROR: Calix executable not found." >&2
+		return 1
+	}
+
+	"$bin_dir/calix" --version || return 1
+
+	printf '%s\n' "=> Done"
+) # }}}
+
 main() {
 
 	# ACTION case
@@ -1441,6 +1509,10 @@ main() {
 
 	librewolf)
 		minx_install_librewolf || return 1
+		;;
+
+	calix)
+		minx_install_calix || return 1
 		;;
 
 	invariant_repos)

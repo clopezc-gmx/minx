@@ -45,6 +45,11 @@ main() {
 	"--invariant-repos")
 		selected_functions+=("invariant_repos")
 		;;
+
+	"--calix")
+		selected_functions+=("calix")
+		;;
+
 	"--all")
 		minx_build_all_options "$0" selected_functions
 		;;
