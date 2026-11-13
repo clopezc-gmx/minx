@@ -14,8 +14,8 @@ LT_ROOT="/opt/minx/languagetool/LanguageTool-6.9-SNAPSHOT/"
 # ------------------------------
 LT_JAR="$LT_ROOT/languagetool-commandline.jar"
 LT_SERVER_URL="http://localhost:8085/v2/check"
-MODE="server"    # default mode: server
-LANGUAGE="en-US" # default language
+MODE="server"
+LANGUAGE="en-US"
 
 # ------------------------------
 # Parse mode from first argument
@@ -35,107 +35,170 @@ esac
 # File to check
 # ------------------------------
 FILE="$1"
+
 [[ -f "$FILE" ]] || {
 	echo "File not found: $FILE" >&2
 	exit 1
 }
 
-# Optional language override
 [[ -n "$2" ]] && LANGUAGE="$2"
 
 # ------------------------------
-# Helper: Compute line and column from character offset
+# Find repository ignore file
 # ------------------------------
-compute_line_col() {
-	local text="$1"
-	local offset="$2"
-	local line=1
-	local col=1
+FILE_DIR=$(cd "$(dirname "$FILE")" && pwd)
 
-	# Loop through text up to the offset
-	for ((i = 0; i < offset; i++)); do
-		char="${text:i:1}"
-		if [[ "$char" == $'\n' ]]; then
-			((line++))
-			col=1
-		else
-			((col++))
-		fi
-	done
+GIT_ROOT=$(git -C "$FILE_DIR" rev-parse --show-toplevel 2>/dev/null)
 
-	echo "$line $col"
-}
+IGNORE_FILE=""
+
+if [[ -n "$GIT_ROOT" ]]; then
+	IGNORE_FILE="$GIT_ROOT/.languagetool-ignore"
+fi
 
 # ------------------------------
-# Preprocess the text by removing backtick content
+# Preprocess Markdown
 # ------------------------------
 preprocess_text() {
-	# Hard-coded flag to determine whether to remove backtick content
-	remove_backtick_content=1
+	local remove_backtick_content=1
 
 	if [[ $remove_backtick_content -eq 1 ]]; then
-		# Use Perl to replace each character inside backticks with an asterisk
-		modified_content=$(perl -0777 -pe 's/`([^`]+)`/sprintf("`%*s`", length($1), "*" x length($1))/ge' "$1")
+		perl -0777 -pe \
+			's/`([^`]+)`/sprintf("`%*s`", length($1), "*" x length($1))/ge' \
+			"$1"
 	else
-		# no processing
-		modified_content=$(cat "$1")
+		cat "$1"
 	fi
-
-	# Output the final processed content
-	echo "$modified_content"
 }
 
 # ------------------------------
 # Run LanguageTool via server
 # ------------------------------
 run_server() {
-	# Read the entire file content once
-	local content
-	content=$(preprocess_text "$FILE")
+	local tmp_content tmp_response
 
-	# Send the processed content to LanguageTool server
-	local response
-	response=$(
-		curl -s -X POST "$LT_SERVER_URL" \
-			-d "language=$LANGUAGE" \
-			--data-urlencode "text=$content"
-	)
+	tmp_content=$(mktemp)
+	tmp_response=$(mktemp)
 
-	# Iterate over each match
-	local i=1
-	jq -c '.matches[]' <<<"$response" | while read -r match; do
-		local offset length msg rule line col marker
-		offset=$(jq '.offset' <<<"$match")
-		length=$(jq '.length' <<<"$match")
-		msg=$(jq -r '.message' <<<"$match")
-		rule=$(jq -r '.rule.id' <<<"$match")
+	trap 'rm -f "$tmp_content" "$tmp_response"' RETURN
 
-		# Compute the line/column of the error
-		read -r line col < <(compute_line_col "$content" "$offset")
+	preprocess_text "$FILE" >"$tmp_content"
 
-		((length < 1)) && length=1 # Default to 1 if length is 0
-		marker=$(printf '%*s' "$length" '' | tr ' ' '^')
+	if ! curl -fsS -X POST "$LT_SERVER_URL" \
+		--data-urlencode "language=$LANGUAGE" \
+		--data-urlencode "text@$tmp_content" \
+		-o "$tmp_response"; then
+		echo "LanguageTool server call failed." >&2
+		return 1
+	fi
 
-		# Output in ALE-friendly format
-		echo "$i.) Line $line, column $col, Rule ID: $rule"
-		echo "Message: $msg"
-		echo "  $marker"
-		echo ""
-		((i++))
-	done
+	python3 - "$tmp_content" "$tmp_response" "$IGNORE_FILE" <<'PY'
+import json
+import os
+import sys
+
+
+content_file, response_file, ignore_file = sys.argv[1:]
+
+with open(content_file, encoding="utf-8") as f:
+    content = f.read()
+
+with open(response_file, encoding="utf-8") as f:
+    response = json.load(f)
+
+if not isinstance(response, dict) or not isinstance(response.get("matches"), list):
+    print("Invalid LanguageTool response", file=sys.stderr)
+    sys.exit(1)
+
+# Load repository-specific ignored words.
+ignored_words = set()
+
+if ignore_file and os.path.isfile(ignore_file):
+    with open(ignore_file, encoding="utf-8") as f:
+        ignored_words = {
+            line.strip().casefold()
+            for line in f
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+
+
+def utf16_to_python_index(text, offset):
+    """Convert LanguageTool UTF-16 offsets to Python indices."""
+    units = 0
+
+    for index, char in enumerate(text):
+        if units >= offset:
+            return index
+
+        units += 2 if ord(char) > 0xFFFF else 1
+
+    return len(text)
+
+
+def is_ignored(match):
+    rule = match.get("rule", {}).get("id", "")
+
+    # Only ignore spelling errors.
+    if not rule.startswith("MORFOLOGIK_RULE_"):
+        return False
+
+    offset = match.get("offset")
+    length = match.get("length")
+
+    if not isinstance(offset, int) or not isinstance(length, int):
+        return False
+
+    start = utf16_to_python_index(content, offset)
+    end = utf16_to_python_index(content, offset + length)
+
+    word = content[start:end].casefold()
+
+    return word in ignored_words
+
+
+def get_line_col(text, index):
+    prefix = text[:index]
+    line = prefix.count("\n") + 1
+    column = len(prefix.rsplit("\n", 1)[-1]) + 1
+
+    return line, column
+
+
+i = 1
+
+for match in response["matches"]:
+    if is_ignored(match):
+        continue
+
+    offset = match.get("offset")
+    length = match.get("length", 1)
+    message = match.get("message", "")
+    rule = match.get("rule", {}).get("id", "")
+
+    if not isinstance(offset, int):
+        continue
+
+    index = utf16_to_python_index(content, offset)
+    line, col = get_line_col(content, index)
+
+    marker = "^" * max(1, length)
+
+    print(f"{i}.) Line {line}, column {col}, Rule ID: {rule}")
+    print(f"Message: {message}")
+    print(f"  {marker}")
+    print()
+
+    i += 1
+PY
 }
 
 # ------------------------------
 # Run LanguageTool via jar
 # ------------------------------
 run_jar() {
-	# Read the entire file content once
-	local content
-	content=$(preprocess_text "$FILE")
-
-	# Run LanguageTool directly via jar
-	echo "$content" | java -cp "$LT_JAR" org.languagetool.commandline.Main \
-		-l "$LANGUAGE" -
+	preprocess_text "$FILE" |
+		java -cp "$LT_JAR" org.languagetool.commandline.Main \
+			-l "$LANGUAGE" -
 }
 
 # ------------------------------
