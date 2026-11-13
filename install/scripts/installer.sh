@@ -572,6 +572,7 @@ minx_install_languagetool() { # {{{
 
 	_minx_header "languagetool with fasttext"
 
+	_minx_msg "Instructions provided at: https://dev.languagetool.org/http-server"
 	# ------------------------------------------------------------------
 	# Build
 	# ------------------------------------------------------------------
