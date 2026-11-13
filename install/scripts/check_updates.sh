@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-CONF="${1:-pinned_versions.txt}"
+CONF="${1:-../config/pinned_versions.txt}"
 TIMEOUT=20
 export GIT_TERMINAL_PROMPT=0
 
