@@ -184,42 +184,43 @@ _sync_documents() { # {{{
 # Start (or reuse) an SSH tunnel managed through a private control socket,
 # so we only ever talk to a tunnel WE created, not to any process that
 # happens to listen on the port.
-_taskwarrior_start_tunnel() { # {{{
+_taskwarrior_start_tunnel() {
 	local ssh_alias="$1"
 	local local_port="$2"
 	local remote_port="$3"
 
-	TW_SOCK="$STATE_DIR/tw-tunnel.sock"
-	TW_ALIAS="$ssh_alias"
-
-	if ssh -S "$TW_SOCK" -O check "$ssh_alias" >/dev/null 2>&1; then
-		printf 'SSH tunnel already running (control socket)\n' >&2
+	# Reuse an existing SSH master managed by ~/.ssh/config.
+	if ssh -O check "$ssh_alias" >/dev/null 2>&1; then
+		printf 'Reusing existing SSH master connection\n' >&2
+		TW_TUNNEL_OWNED=0
 		return 0
 	fi
 
-	# A foreign listener on the port would receive our credentials.
+	TW_SOCK="$STATE_DIR/tw-tunnel.sock"
+	TW_ALIAS="$ssh_alias"
+
+	# Refuse to use an unrelated listener.
 	if lsof -nP -i "TCP:$local_port" -sTCP:LISTEN >/dev/null 2>&1; then
 		printf 'Port %s is already used by another process\n' \
 			"$local_port" >&2
 		return 1
 	fi
 
-	printf 'Starting SSH tunnel 127.0.0.1:%s -> %s:%s\n' \
+	printf 'Starting dedicated SSH tunnel 127.0.0.1:%s -> %s:%s\n' \
 		"$local_port" "$ssh_alias" "$remote_port" >&2
 
-	# - Host-key verification stays enabled. Do not add StrictHostKeyChecking=no.
-	# - 200>&- keeps the daemonized ssh from inheriting (and holding) the
-	#   dispatcher's lock file descriptor.
 	ssh \
 		-M -S "$TW_SOCK" \
 		-f -N \
+		-o ControlMaster=yes \
 		-o ExitOnForwardFailure=yes \
 		-o BatchMode=yes \
+		-o ClearAllForwardings=yes \
 		-L "127.0.0.1:${local_port}:127.0.0.1:${remote_port}" \
 		"$ssh_alias" 200>&- || return 1
 
 	TW_TUNNEL_OWNED=1
-} # }}}
+}
 
 _sync_taskwarrior() { # {{{
 	_require_env MINX_REMOTE_SSH_SERVER || return 1
