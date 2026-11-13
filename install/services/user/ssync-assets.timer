@@ -1,5 +1,5 @@
 [Unit]
-Description=Synchronize files daily at 17:00
+Description=Synchronize assets daily at 17:00
 
 [Timer]
 OnCalendar=*-*-* 17:00:00

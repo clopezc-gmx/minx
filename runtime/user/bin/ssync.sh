@@ -12,6 +12,9 @@
 #   * PATH is taken from the environment (keepassmenu.sh must be on it).
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source /etc/profile.d/minx_profile.sh
+
 # Refuse xtrace: it would leak secrets into the terminal and the log.
 case "$-" in
 *x*)

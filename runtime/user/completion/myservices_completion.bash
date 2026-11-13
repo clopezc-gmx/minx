@@ -15,13 +15,13 @@ _myservices_autocomplete() {
 
 	local services=(
 		languagetool.service
-		ssync-files.service
-		ssync-notes.service
+		ssync-assets.service
+		ssync-documents.service
 		ssync-ta.service
 		wikiviewer.service
 		ssync-calendar.service
 		ssync-mail.service
-		ssync-pass.service
+		ssync-passwords.service
 		ssync-taskwarrior.service
 		update_feeds.service
 	)

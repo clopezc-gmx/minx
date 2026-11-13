@@ -1,9 +1,9 @@
 [Unit]
-Description=Synchronize mail hourly
+Description=Synchronize mail every 15 minutes
 
 [Timer]
 OnBootSec=5min
-OnUnitActiveSec=1h
+OnUnitActiveSec=15min
 Persistent=true
 
 [Install]

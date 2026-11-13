@@ -370,17 +370,17 @@ minx_install_user_services() { # {{{
 		["ssync-calendar.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-calendar.service"
 		["ssync-calendar.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-calendar.timer"
 
-		["ssync-pass.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-pass.service"
-		["ssync-pass.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-pass.timer"
+		["ssync-passwords.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-passwords.service"
+		["ssync-passwords.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-passwords.timer"
 
 		["ssync-taskwarrior.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-taskwarrior.service"
 		["ssync-taskwarrior.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-taskwarrior.timer"
 
-		["ssync-files.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-files.service"
-		["ssync-files.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-files.timer"
+		["ssync-assets.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-assets.service"
+		["ssync-assets.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-assets.timer"
 
-		["ssync-notes.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-notes.service"
-		["ssync-notes.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-notes.timer"
+		["ssync-documents.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-documents.service"
+		["ssync-documents.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-documents.timer"
 
 		["ssync-ta.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-ta.service"
 		["ssync-ta.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-ta.timer"
@@ -399,10 +399,10 @@ minx_install_user_services() { # {{{
 
 		ssync-mail.timer
 		ssync-calendar.timer
-		ssync-pass.timer
+		ssync-passwords.timer
 		ssync-taskwarrior.timer
-		ssync-files.timer
-		ssync-notes.timer
+		ssync-assets.timer
+		ssync-documents.timer
 		ssync-ta.timer
 		update_feeds.timer
 	)
