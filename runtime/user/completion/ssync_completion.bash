@@ -4,10 +4,10 @@ _ssync_autocomplete() {
 	local actions=(
 		all
 		calendar
-		files
+		assets
 		mail
-		notes
-		pass
+		passwords
+		documents
 		ta
 		taskwarrior
 	)
