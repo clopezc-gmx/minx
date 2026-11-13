@@ -710,17 +710,17 @@ readonly MINX_INSTALLER_ROOT
 
 source "$MINX_INSTALLER_ROOT/install/config/minx.conf"
 
-: "${MXC_USER_FILES_DIR:?Variable not set or empty}"
-: "${MXC_USER_REPOS_DIR:?Variable not set or empty}"
-: "${MXC_USER_NOTES_DIR:?Variable not set or empty}"
-: "${MXC_USER_REFERENCE_FILE:?Variable not set or empty}"
-: "${MXC_USER_CPP_PROJECT_LIST:?Variable not set or empty}"
-: "${MXC_REMOTE_SSH_SERVER:?Variable not set or empty}"
-: "${MXC_REMOTE_BAREREPOS_DIR:?Variable not set or empty}"
-: "${MXC_REMOTE_FILES_DIR:?Variable not set or empty}"
-: "${MXC_REMOTE_BINARIES_DIR:?Variable not set or empty}"
-: "${MXC_INSTALLATION_DIR:?Variable not set or empty}"
-: "${MXC_PROFILES_DIR:?Variable not set or empty}"
+readonly MINX_USER_ASSETS_DIR="${MXC_USER_ASSETS_DIR:?Variable not set or empty}"
+readonly MINX_USER_REPOS_DIR="${MXC_USER_REPOS_DIR:?Variable not set or empty}"
+readonly MINX_USER_DOCUMENTS_DIR="${MXC_USER_DOCUMENTS_DIR:?Variable not set or empty}"
+readonly MINX_USER_REFERENCE_FILE="${MXC_USER_REFERENCE_FILE:?Variable not set or empty}"
+readonly MINX_USER_CPP_PROJECT_LIST="${MXC_USER_CPP_PROJECT_LIST:?Variable not set or empty}"
+readonly MINX_REMOTE_SSH_SERVER="${MXC_REMOTE_SSH_SERVER:?Variable not set or empty}"
+readonly MINX_REMOTE_BAREREPOS_DIR="${MXC_REMOTE_BAREREPOS_DIR:?Variable not set or empty}"
+readonly MINX_REMOTE_ASSETS_BASEDIR="${MXC_REMOTE_ASSETS_BASEDIR:?Variable not set or empty}"
+readonly MINX_REMOTE_BINARIES_DIR="${MXC_REMOTE_BINARIES_DIR:?Variable not set or empty}"
+readonly MINX_INSTALLATION_DIR="${MXC_INSTALLATION_DIR:?Variable not set or empty}"
+readonly MINX_PROFILES_DIR="${MXC_PROFILES_DIR:?Variable not set or empty}"
 
 # --------------------------------------
 # Directories
@@ -728,7 +728,6 @@ source "$MINX_INSTALLER_ROOT/install/config/minx.conf"
 readonly MINX_INSTALLER_PATCHES_DIR="$MINX_INSTALLER_ROOT/install/patches"
 readonly MINX_INSTALLER_SERVICES_DIR="$MINX_INSTALLER_ROOT/install/services"
 
-readonly MINX_INSTALLATION_DIR="$MXC_INSTALLATION_DIR"
 readonly MINX_INFO_DIR="$MINX_INSTALLATION_DIR/info"
 readonly MINX_LOG_DIR="$MINX_INSTALLATION_DIR/logs"
 readonly MINX_REPOS_DIR="$MINX_INSTALLATION_DIR/repos"

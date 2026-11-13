@@ -738,20 +738,46 @@ minx_install_runtime() { # {{{
 
 	minx_assert_is_root "$0" || exit 1
 
+	# An empty or relative installation dir would turn the `rm -rf` below
+	# into `rm -rf /runtime` or something relative to the current directory.
+	if [[ -z "${MINX_INSTALLATION_DIR:-}" ]]; then
+		printf '%s\n' "=> ERROR: MINX_INSTALLATION_DIR is not set or empty" >&2
+		exit 1
+	fi
+
+	if [[ "$MINX_INSTALLATION_DIR" != /?* || "$MINX_INSTALLATION_DIR" == "/" ]]; then
+		printf '%s\n' "=> ERROR: MINX_INSTALLATION_DIR must be an absolute path other than /: $MINX_INSTALLATION_DIR" >&2
+		exit 1
+	fi
+
 	local runtime_dir="$MINX_INSTALLATION_DIR/runtime"
 	local profile_file="/etc/profile.d/minx_profile.sh"
 	local profile_template="$MINX_INSTALLER_ROOT/install/config/template_minx_profile.sh"
 	local version_script="$runtime_dir/system/bin/minx-version"
 
 	# Variable names are read from the template: @@MINX_<name>@@ is replaced
-	# by the value of MINX_<name>. Nothing to keep in sync by hand.
-	local -a profile_vars
+	# by the value of MINX_<name> (falling back to MXC_<name>, the config-file
+	# name, if MINX_<name> is unset or empty).
+	local -a profile_vars=()
+	local -a sed_args=()
+	local name ref legacy escaped answer tmp_profile
+
+	if [[ ! -r "$profile_template" ]]; then
+		printf '%s\n' "=> ERROR: cannot read template: $profile_template" >&2
+		exit 1
+	fi
+
 	mapfile -t profile_vars < <(
-		grep -o '@@MINX_[A-Z_]*@@' "$profile_template" |
+		grep -o '@@MINX_[A-Z0-9_]*@@' "$profile_template" |
 			sort -u | sed -e 's/^@@MINX_//' -e 's/@@$//'
 	)
-	local -a sed_args=()
-	local name ref escaped answer
+
+	# grep exits 1 on no match and mapfile ignores that status. An empty list
+	# would make `sed` treat the template file itself as its script.
+	if ((${#profile_vars[@]} == 0)); then
+		printf '%s\n' "=> ERROR: no @@MINX_<name>@@ placeholders found in $profile_template" >&2
+		exit 1
+	fi
 
 	if [[ -e "$runtime_dir" ]]; then
 		printf '=> %s already exists. Override? [y/N] ' "$runtime_dir"
@@ -798,7 +824,9 @@ EOF
 
 	chmod 755 -- "$version_script" || exit 1
 
-	tree "$runtime_dir"
+	if command -v tree >/dev/null 2>&1; then
+		tree "$runtime_dir"
+	fi
 
 	_minx_msg "Installing minx_profile.sh ..."
 
@@ -806,9 +834,17 @@ EOF
 	# in a sed replacement: \ & and the delimiter |
 	for name in "${profile_vars[@]}"; do
 		ref="MINX_$name"
+		legacy="MXC_$name"
 
-		if [[ ! -v $ref ]]; then
-			printf '%s\n' "=> ERROR: $ref is not set" >&2
+		# Fall back to the config-file name (MXC_*) if the MINX_* one is missing.
+		if [[ -z "${!ref:-}" && -n "${!legacy:-}" ]]; then
+			printf -v "$ref" '%s' "${!legacy}"
+		fi
+
+		# Unset OR empty is an error: an empty value would be baked into
+		# /etc/profile.d and later feed destructive commands (rsync --delete).
+		if [[ -z "${!ref:-}" ]]; then
+			printf '%s\n' "=> ERROR: $ref (or $legacy) is not set or empty" >&2
 			exit 1
 		fi
 
@@ -816,14 +852,28 @@ EOF
 		sed_args+=(-e "s|@@MINX_${name}@@|${escaped}|g")
 	done
 
-	# Substitute while copying, so placeholders never land in /etc/profile.d
-	sed "${sed_args[@]}" "$profile_template" >"$profile_file" || exit 1
+	# Build the profile in a temporary file next to the target (same
+	# filesystem, so the final mv is atomic). The name does not match
+	# profile.d's *.sh glob, so login shells never source a half-built file.
+	tmp_profile="$(mktemp -- "${profile_file%/*}/.minx_profile.XXXXXX")" || exit 1
 
-	chmod 644 -- "$profile_file" || exit 1
+	# Substitute while copying, so placeholders never land in /etc/profile.d.
+	if ! sed "${sed_args[@]}" "$profile_template" >"$tmp_profile"; then
+		rm -f -- "$tmp_profile"
+		printf '%s\n' "=> ERROR: sed failed while rendering the profile" >&2
+		exit 1
+	fi
 
-	# Catch placeholders that were not substituted (e.g. a leftover @@MXC_...@@)
-	if grep -q '@@[A-Z_]*@@' "$profile_file"; then
-		printf '%s\n' "=> ERROR: unresolved placeholder in $profile_file" >&2
+	# Catch placeholders that were not substituted (e.g. a leftover @@MXC_...@@).
+	if grep -q '@@[A-Z0-9_]*@@' "$tmp_profile"; then
+		rm -f -- "$tmp_profile"
+		printf '%s\n' "=> ERROR: unresolved placeholder in rendered profile (template: $profile_template)" >&2
+		exit 1
+	fi
+
+	if ! chmod 644 -- "$tmp_profile" || ! mv -f -- "$tmp_profile" "$profile_file"; then
+		rm -f -- "$tmp_profile"
+		printf '%s\n' "=> ERROR: could not install $profile_file" >&2
 		exit 1
 	fi
 

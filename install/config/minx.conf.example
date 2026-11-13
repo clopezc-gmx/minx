@@ -12,9 +12,9 @@
 #
 # Local
 #
-readonly MXC_USER_FILES_DIR=""
+readonly MXC_USER_ASSETS_DIR=""
 readonly MXC_USER_REPOS_DIR=""
-readonly MXC_USER_NOTES_DIR=""
+readonly MXC_USER_DOCUMENTS_DIR=""
 readonly MXC_USER_REFERENCE_FILE=""
 readonly MXC_USER_CPP_PROJECT_LIST=""
 
@@ -23,11 +23,10 @@ readonly MXC_USER_CPP_PROJECT_LIST=""
 #
 readonly MXC_REMOTE_SSH_SERVER=""
 readonly MXC_REMOTE_BAREREPOS_DIR=""
-readonly MXC_REMOTE_FILES_DIR=""
+readonly MXC_REMOTE_ASSETS_BASEDIR=""
 readonly MXC_REMOTE_BINARIES_DIR=""
 
 # Install
 #
 readonly MXC_INSTALLATION_DIR="/opt/minx"
-
 readonly MXC_PROFILES_DIR=""

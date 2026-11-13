@@ -263,10 +263,7 @@ minx_clone_personal_repos() { # {{{
 		.abook
 		.password-store
 		family-server
-		mydocuments
-		mynotes
-		minx.d/bootstrap
-		minx.d/profiles
+		minx-profiles
 		mytools.d/tt.d/tt-src
 		mytools.d/tt.d/tt-data.d/activities
 		mytools.d/tt.d/tt-data.d/notes
@@ -280,6 +277,11 @@ minx_clone_personal_repos() { # {{{
 
 	local repo
 	local repo_dir
+
+	local remote=""
+	if [ "$_is_server" == "no" ]; then
+		remote="$MINX_REMOTE_SSH_SERVER:"
+	fi
 
 	for repo in "${personal_repos[@]}"; do
 		repo_dir="$dst_dir/$repo"
@@ -296,16 +298,27 @@ minx_clone_personal_repos() { # {{{
 
 		printf '%s\n' "=> Cloning $repo..."
 
-		local remote=""
-		if [ "$_is_server" == "no" ]; then
-			remote="$MINX_REMOTE_SSH_SERVER:"
-		fi
-
 		git clone "${remote}${MINX_REMOTE_BAREREPOS_DIR}/${repo}.git" "${repo_dir}" || {
 			printf '%s\n' "=> Error: failed to clone $repo" >&2
 			return 1
 		}
 	done
+
+	repo_dir="$MINX_USER_DOCUMENTS_DIR"
+	repo=mydocuments
+
+	if [[ -d "$repo_dir/.git" ]]; then
+		printf '%s\n' "=> $repo already exists, skipping clone."
+	elif [[ -e "$repo_dir" ]]; then
+		printf '%s\n' "=> Error: destination exists but is not a Git repository: $repo_dir" >&2
+		return 1
+	else
+		printf '%s\n' "=> Cloning $repo..."
+		git clone "${remote}${MINX_REMOTE_BAREREPOS_DIR}/${repo}.git" "$MINX_USER_DOCUMENTS_DIR" || {
+			printf '%s\n' "=> Error: failed to clone $repo" >&2
+			return 1
+		}
+	fi
 
 	local -A folder_map
 	folder_map+=(
