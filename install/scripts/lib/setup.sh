@@ -863,11 +863,11 @@ minx_install_system_services() { # {{{
 minx_install_tt() { #{{{
 	minx_assert_is_non_root || return 1
 	cd "$MINX_USER_REPOS_DIR/personal/mytools.d/tt.d/tt-src" || return 1
-	./install.sh "$@"
+	./install.sh "$@" --force
 } #}}}
 
 minx_install_wikiviewer() { #{{{
 	minx_assert_is_non_root || return 1
 	cd "$MINX_USER_REPOS_DIR/personal/mytools.d/wikiviewer" || return 1
-	./install.sh "$@"
+	./install.sh --force
 } #}}}

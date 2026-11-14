@@ -35,7 +35,7 @@ main() {
 
 	"--install-wikiviewer")
 		shift 2
-		minx_install_wikiviewer "$@" || return 1
+		minx_install_wikiviewer || return 1
 		;;
 
 	"--restore-rc-files")
