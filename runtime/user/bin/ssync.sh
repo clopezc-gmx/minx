@@ -630,11 +630,15 @@ _run_and_log() { # {{{
 
 	end="$(date +%s)"
 
+	local green=$'\033[0;32m'
+	local red=$'\033[0;31m'
+	local reset=$'\033[0m'
+
 	if ((status == 0)); then
-		_log "$logfile" "=> Success ($((end - start))s)"
+		_log "$logfile" "${green}=> Success ($((end - start))s)${reset}"
 	else
 		_log "$logfile" \
-			"=> Failed (exit $status, $((end - start))s)"
+			"${red}=> Failed (exit $status, $((end - start))s)${reset}"
 	fi
 
 	return "$status"
