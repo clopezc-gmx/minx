@@ -1,29 +1,24 @@
 # minx - minimal debian setup with dwm
 
-This repo contains provisioning and runtime tools for a Debian 13 workstation in two flavors: a minimal dwm desktop for laptops, or a headless server.
+This repository contains provisioning and runtime tools for setting up a Debian 13 workstation in two configurations: a minimal dwm desktop for laptops or a headless server.
+
+I value reliable, fast, and responsive tools. I love Vim and the terminal, and I prefer command-line solutions whenever they are practical.
 
 ## What gets installed
 
-Pinned in `install/config/pinned_versions.txt`:
+Software versions are pinned in install/config/pinned_versions.txt.
 
-- **Suckless tools:** dwm, st, sent, slock (patched from `install/patches/`)
-- **Editors and tools:** Vim, universal-ctags, shfmt, tmpi
-- **Browser:** qutebrowser with the Dracula theme and pdf.js
-- **Tasks and time:** Taskwarrior, Timewarrior
-- **Writing:** LanguageTool with fastText, LaTeX snippets, 
-- **Languages:** Go, nvm and Node.js
-- **Fonts and themes:** JetBrains Mono (Nerd Font), Linux a11y sound theme
-- **Other:** Spotify, LibreWolf, Calix
+- **Window manager**: `dwm` and `slock` (screen locker), with `dunst` and `xsetroot` for notifications and status information.
+- **Terminal**: `st` with JetBrains Mono Nerd Font and `tmux`.
+- **Text editor**: `Vim` with Python support for plugins, particularly ALE and UltiSnips.
+- **Writing**: LanguageTool with fastText, installed as an HTTPS server and integrated into Vim.
+- **Browsers**: `qutebrowser` (with `qb.sh`, a wrapper for managing separate profiles,), `Chromium`, and `LibreWolf` as alternatives.
+- **Mail and calendar**: `NeoMutt` with `Notmuch`, `khal` with `vdirsyncer`, `Calix` as a calendar GUI, and `Thunderbird` as a fallback.
+- **Task and time tracking**: `Taskwarrior` and `Timewarrior`.
+- **Password management**: `KeePassXC` and a collection of supporting scripts.
+- **Systemd services**: Automated synchronization of mail, calendars, Taskwarrior, Timewarrior, and documents.
 
-Design is around the following tools:
-
-- vim 
-- qutebrowser (qb.sh)
-- neomutt
-- khal with vdirsyncer, task- and timewarrior
-- keepassxc
-
-Some tools were installed manually since the required version is not available in Debian 13 packages, but I expect they will be included in newer releases.
+Some tools are installed manually because the versions available in Debian 13 are not sufficiently up to date. I expect newer Debian releases to include these versions.
 
 ## Structure
 
