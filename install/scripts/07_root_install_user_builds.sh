@@ -3,11 +3,6 @@
 
 set -euo pipefail
 
-if [ -z "$DISPLAY" ]; then
-	printf "%s\n" "=> ERROR: No display found. Please ensure you are running in a graphical environment."
-	exit 1
-fi
-
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
 source "$SCRIPT_DIR/lib/list_dispatch_options.sh"

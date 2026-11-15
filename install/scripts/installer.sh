@@ -179,6 +179,8 @@ minx_install_jetbrains_mono() ( # {{{
 	# NOTE: literal "font_name" (probably meant $font_name); kept as it was.
 	local install_dir="$MINX_INSTALLATION_DIR/font_name"
 
+	minx_skip_headless "JetBrains Mono" && return 0
+
 	_minx_header "Install JetBrains Mono $font_version"
 
 	minx_assert_is_root "$0" || return 1
@@ -215,6 +217,8 @@ minx_install_qemu() ( # {{{
 		virt-manager
 	)
 	local loguser
+
+	minx_skip_headless "QEMU" && return 0
 
 	_minx_header "QEMU"
 
@@ -479,7 +483,7 @@ minx_install_qutebrowser() ( # {{{
 	local python="$repo_dir/.venv/bin/python"
 	local script="$repo_dir/qutebrowser.py"
 
-	minx_assert_has_display || return 1
+	minx_skip_headless "qutebrowser" && return 0
 
 	_minx_header "$repo_dir"
 
@@ -696,6 +700,8 @@ minx_install_pdfjs() ( # {{{
 	local repo_dir="$MINX_REPOS_DIR/pdfjs"
 	local install_dir="$MINX_INSTALLATION_DIR/pdfjs"
 
+	minx_skip_unless_built "$ACTION" "pdf.js" "$repo_dir/build/generic" && return 0
+
 	_minx_header "$install_dir"
 
 	_minx_load_nvm
@@ -706,6 +712,9 @@ minx_install_pdfjs() ( # {{{
 		_minx_checkout_pinned pdfjs || return 1
 
 		cd -- "$repo_dir" || return 1
+
+		# Remove stale output so a skipped rebuild can't leave an old build behind.
+		rm -rf -- "$repo_dir/build/generic"
 
 		_minx_msg "Building ..."
 
@@ -881,7 +890,9 @@ EOF
 } # }}}
 
 # dwm, sent, st and slock share the same build/install scripts.
-_minx_install_suckless() { # <name> [VAR=value ...]
+# No DISPLAY guard: they are built and installed on every machine.
+_minx_install_suckless() { #{{{ 
+	# <name> [VAR=value ...]
 	local name="$1"
 	shift
 
@@ -917,46 +928,45 @@ _minx_install_suckless() { # <name> [VAR=value ...]
 minx_install_dwm() {
 	_minx_install_suckless dwm \
 		"SCRIPTS_DIR=$MINX_INSTALLATION_DIR/runtime/system/bin"
-}
+} # }}}
 
 minx_install_sent() { _minx_install_suckless sent; }
 minx_install_st() { _minx_install_suckless st; }
 minx_install_slock() { _minx_install_suckless slock; }
 
-minx_install_invariant_repos() {
+# shellcheck disable=SC2034 # file_map is passed by name to minx_symlink_map
+minx_install_invariant_repos() { #{{{
 
 	minx_assert_is_non_root "$0" || return 1
 
-	_minx_header "qb dracula theme"
-
-	_minx_checkout_patched qutebrowser_dracula_theme \
-		"$MINX_INSTALLER_PATCHES_DIR/qutebrowser_dracula_theme.diff" || return 1
-	_minx_msg "Done"
+	local -A file_map=()
 
 	_minx_header "latex snippets"
 	_minx_checkout_patched latex_snippets || return 1
 
-	_minx_header "linux a11y sound theme"
-	_minx_checkout_patched linux_a11y_sound_theme || return 1
-
 	_minx_header "tmpi"
 	_minx_checkout_patched tmpi || return 1
 
+	# [dst]=src
+	file_map["$HOME/.local/bin/tmpi"]="$MINX_REPOS_DIR/tmpi/tmpi"
+
+	# Desktop-only pieces.
+	if ! minx_skip_headless "qb dracula theme and a11y sound theme"; then
+		_minx_header "qb dracula theme"
+		_minx_checkout_patched qutebrowser_dracula_theme \
+			"$MINX_INSTALLER_PATCHES_DIR/qutebrowser_dracula_theme.diff" || return 1
+		file_map["$HOME/.config/qutebrowser/dracula"]="$MINX_REPOS_DIR/qutebrowser_dracula_theme/"
+
+		_minx_header "linux a11y sound theme"
+		_minx_checkout_patched linux_a11y_sound_theme || return 1
+	fi
+
 	_minx_msg "Install ..."
-
-	cd "$MINX_REPOS_DIR/tmpi" || return 1
-
-	local -A file_map
-	file_map+=(
-		# [dst]=src
-		["$HOME/.local/bin/tmpi"]="$MINX_REPOS_DIR/tmpi/tmpi"
-		["$HOME/.config/qutebrowser/dracula"]="$MINX_REPOS_DIR/qutebrowser_dracula_theme/"
-	)
 
 	minx_symlink_map file_map
 
 	_minx_msg "Done"
-}
+} # }}}
 
 _parse_arguments() { # {{{
 
@@ -977,8 +987,9 @@ _parse_arguments() { # {{{
 } # }}}
 
 minx_install_onlyoffice() {
+	minx_skip_headless "Onlyoffice" && return 0
+
 	minx_assert_is_root
-	minx_assert_has_display
 
 	minx_header "L1" "Onlyoffice"
 
@@ -1007,8 +1018,9 @@ minx_install_onlyoffice() {
 }
 
 minx_install_librewolf() {
+	minx_skip_headless "LibreWolf" && return 0
+
 	minx_assert_is_root
-	minx_assert_has_display
 
 	minx_header "L1" "librewolf"
 
@@ -1022,8 +1034,9 @@ minx_install_librewolf() {
 }
 
 minx_install_spotify() {
+	minx_skip_headless "Spotify" && return 0
+
 	minx_assert_is_root
-	minx_assert_has_display
 
 	minx_header "L1" "Spotify"
 
@@ -1145,10 +1158,6 @@ main() {
 
 	pdfjs)
 		minx_install_pdfjs || return 1
-		;;
-
-	qb_dracula_theme)
-		minx_install_qb_dracula_theme || return 1
 		;;
 
 	qemu)

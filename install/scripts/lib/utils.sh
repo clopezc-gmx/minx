@@ -701,6 +701,44 @@ minx_verify_sha256() { # <file> <expected-sha256>
 	printf '=> sha256 OK: %s\n' "${file##*/}"
 }
 
+# Headless handling
+# ----------------------------------------------------------------------
+
+# True if a graphical session is available.
+minx_has_display() { [[ -n ${DISPLAY:-} ]]; }
+
+# Prints a skip message unless MINX_QUIET_SKIP=1.
+minx_skip_msg() { # <message>
+	[[ ${MINX_QUIET_SKIP:-0} == 1 ]] || printf '=> %s\n' "$*"
+}
+
+# Returns 0 (skip) when there is no display, 1 (carry on) otherwise.
+# Usage: minx_skip_headless "name" && return 0
+minx_skip_headless() { # <label>
+	minx_has_display && return 1
+	minx_skip_msg "DISPLAY is not set, skipping $1."
+	return 0
+}
+
+# For two-phase installers (build as user, install as root):
+#   build:   skip when there is no display
+#   install: skip when the build output is missing
+# Returns 0 (skip) or 1 (carry on).
+# Usage: minx_skip_unless_built "$ACTION" "name" "/path/to/output" && return 0
+minx_skip_unless_built() { # <action> <label> <build-output-path>
+	local action="$1" label="$2" output="$3"
+
+	if [[ $action == "--build" ]]; then
+		minx_skip_headless "$label"
+		return
+	fi
+
+	[[ -e $output ]] && return 1
+
+	minx_skip_msg "No build output ($output), skipping $label."
+	return 0
+}
+
 # --------------------------------------
 # Load install configuration
 # --------------------------------------
