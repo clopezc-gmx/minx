@@ -891,7 +891,7 @@ EOF
 
 # dwm, sent, st and slock share the same build/install scripts.
 # No DISPLAY guard: they are built and installed on every machine.
-_minx_install_suckless() { #{{{ 
+_minx_install_suckless() { #{{{
 	# <name> [VAR=value ...]
 	local name="$1"
 	shift
@@ -1066,6 +1066,8 @@ minx_install_calix() ( # {{{
 	local dst_file="$download_dir/$archive_name"
 	local tmp_dir
 	local bin_dir="$HOME/.local/bin"
+
+	minx_skip_headless "Calix" && return 0
 
 	_minx_header "Install Calix $version"
 
