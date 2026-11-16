@@ -350,6 +350,10 @@ minx_install_pipx_packages() { # {{{
 		proselint
 		pycln
 		pylint
+		ranger-fm
+		shellcheck-py
+		task-tui
+		vale
 		vdirsyncer
 		yamllint
 		yt-dlp
@@ -361,7 +365,7 @@ minx_install_pipx_packages() { # {{{
 	minx_assert_is_non_root "$0" || return 1
 
 	for pkg in "${pipx_packages[@]}"; do
-		pipx install --force "$pkg"
+		pipx install "$pkg"
 	done
 
 	_minx_msg "Done"

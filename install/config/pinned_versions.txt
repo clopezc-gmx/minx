@@ -1,6 +1,6 @@
 # commits
 
-commit_ctags=692cde832
+commit_ctags=394badef3
 url_ctags=https://github.com/universal-ctags/ctags.git
 
 commit_dwm=1563572
@@ -12,7 +12,7 @@ url_fasttext=https://github.com/facebookresearch/fastText.git
 commit_latex_snippets=1e29f44
 url_latex_snippets=https://github.com/gillescastel/latex-snippets.git
 
-commit_qutebrowser=9f6e29981
+commit_qutebrowser=a2a9c9dd8
 url_qutebrowser=https://github.com/qutebrowser/qutebrowser.git
 
 commit_qutebrowser_dracula_theme=791de19
@@ -27,10 +27,10 @@ url_linux_a11y_sound_theme=https://github.com/coffeeking/linux-a11y-sound-theme.
 commit_st=fdaadd5
 url_st=https://git.suckless.org/st
 
-commit_taskwarrior=61e542918
+commit_taskwarrior=401228f25
 url_taskwarrior=https://github.com/GothenburgBitFactory/taskwarrior.git
 
-commit_timewarrior=417eed12
+commit_timewarrior=2263be900
 url_timewarrior=https://github.com/GothenburgBitFactory/timewarrior.git
 
 commit_vim=cbe1cf017
@@ -60,15 +60,15 @@ sha256_fasttext_model=7e69ec5451bc261cc7844e49e4792a85d7f09c06789ec800fc4a44aec3
 version_jetbrains_mono=v3.5.1
 url_jetbrains_mono=https://github.com/ryanoasis/nerd-fonts/releases
 
-version_go=1.27.1
+version_go=1.27.4
 url_go=https://go.dev/dl/
 
-version_nvm=v0.40.8
+version_nvm=v0.41.0
 url_nvm=https://raw.githubusercontent.com/nvm-sh/nvm
 
-version_nodejs=24.21.0
+version_nodejs=24.22.3
 
 version_shfmt=v3.14.1
 
-version_calix=0.9.0
+version_calix=0.10.0
 url_calix=https://github.com/ianswope/calix/releases
