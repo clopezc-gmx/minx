@@ -31,7 +31,9 @@ _stop_time_tracking() {
 
 	hh_printmsg "=> Stop tracking"
 
-	TT_TTY="/dev/stderr" ta stop_before_system_shutdown "now" @@ " -- system-$action"
+	TT_TTY="/dev/stderr" \
+		"$HOME/.local/bin/ta" \
+		stop_before_system_shutdown "now" @@ " -- system-$action"
 }
 
 _actions() {

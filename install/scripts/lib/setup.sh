@@ -735,8 +735,8 @@ minx_install_system_services() { # {{{
 
 	local _is_server="${1:-?Variable not set}"
 	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Different behaviour\n"
-		printf "\n=> [is_server=yes] --  Do nothing\n"
+		printf '%s\n' "=> [is_server=yes] -- Different behaviour"
+		printf '%s\n' "=> [is_server=yes] -- Do nothing"
 		return 0
 	fi
 
@@ -753,6 +753,7 @@ minx_install_system_services() { # {{{
 		shutdown-pre@poweroff.service
 		shutdown-pre@halt.service
 	)
+
 	local -a targets=(
 		reboot.target
 		poweroff.target
@@ -760,7 +761,7 @@ minx_install_system_services() { # {{{
 	)
 
 	local target service_instance expected_instance
-	local wants_dir link tmp source destination mode
+	local wants_dir link
 	local i failed=0
 
 	#
@@ -776,34 +777,132 @@ minx_install_system_services() { # {{{
 		failed=1
 	}
 
+	#
+	# Render and install template
+	#
+
 	_minx_install_template() {
 		local source=$1 destination=$2 mode=$3
 		local tmp
+		local name ref legacy escaped
+		local escaped_user escaped_home
 
-		if [[ ! -f "$source" ]]; then
-			_minx_fail "Missing source file: $source"
+		local -a profile_vars=()
+		local -a sed_args=()
+
+		if [[ ! -r "$source" ]]; then
+			_minx_fail "Cannot read source file: $source"
 			return 1
 		fi
+
+		#
+		# Find MINX_* placeholders
+		#
+		# Supports:
+		#   @@MINX_NAME@@
+		#   @MINX_NAME@@
+		#
+
+		mapfile -t profile_vars < <(
+			grep -oE '@@MINX_[A-Z0-9_]*@@|@MINX_[A-Z0-9_]*@@' "$source" |
+				sed -E 's/^@+MINX_//; s/@+$//' |
+				sort -u
+		)
+
+		#
+		# Build sed expressions
+		#
+
+		for name in "${profile_vars[@]}"; do
+			ref="MINX_$name"
+			legacy="MXC_$name"
+
+			# Fall back to MXC_* if MINX_* is unset or empty.
+			if [[ -z "${!ref:-}" && -n "${!legacy:-}" ]]; then
+				printf -v "$ref" '%s' "${!legacy}"
+			fi
+
+			if [[ -z "${!ref:-}" ]]; then
+				_minx_fail "$ref (or $legacy) is not set or empty"
+				return 1
+			fi
+
+			# Escape sed replacement characters.
+			escaped=$(printf '%s' "${!ref}" |
+				sed 's/[\\&|]/\\&/g') || {
+				_minx_fail "Failed to escape $ref"
+				return 1
+			}
+
+			sed_args+=(
+				-e "s|@@MINX_${name}@@|${escaped}|g"
+				-e "s|@MINX_${name}@@|${escaped}|g"
+			)
+		done
+
+		#
+		# Legacy placeholders
+		#
+
+		if grep -qE '@TARGET_USER@|@TARGET_HOME@' "$source"; then
+			escaped_user=$(printf '%s' "$target_user" |
+				sed 's/[\\&|]/\\&/g') || {
+				_minx_fail "Failed to escape target user"
+				return 1
+			}
+
+			escaped_home=$(printf '%s' "$target_home" |
+				sed 's/[\\&|]/\\&/g') || {
+				_minx_fail "Failed to escape target home"
+				return 1
+			}
+
+			sed_args+=(
+				-e "s|@TARGET_USER@|${escaped_user}|g"
+				-e "s|@TARGET_HOME@|${escaped_home}|g"
+			)
+		fi
+
+		#
+		# Prepare temporary destination
+		#
 
 		tmp="$(mktemp "${destination}.XXXXXX")" || {
 			_minx_fail "mktemp failed for: $destination"
 			return 1
 		}
 
-		if ! sed \
-			-e "s|@TARGET_USER@|$target_user|g" \
-			-e "s|@TARGET_HOME@|$target_home|g" \
-			"$source" >"$tmp"; then
+		#
+		# Render or copy template
+		#
+
+		if ((${#sed_args[@]} > 0)); then
+			if ! sed "${sed_args[@]}" "$source" >"$tmp"; then
+				rm -f -- "$tmp"
+				_minx_fail "Failed to generate: $destination"
+				return 1
+			fi
+		else
+			if ! cp -- "$source" "$tmp"; then
+				rm -f -- "$tmp"
+				_minx_fail "Failed to copy: $source"
+				return 1
+			fi
+		fi
+
+		#
+		# Check unresolved placeholders
+		#
+
+		if grep -qE '@+MINX_[A-Z0-9_]*@@|@@[A-Z0-9_]*@@|@TARGET_(USER|HOME)@' "$tmp"; then
 			rm -f -- "$tmp"
-			_minx_fail "Failed to generate: $destination"
+			_minx_fail "Unresolved placeholders in: $destination"
 			return 1
 		fi
 
-		if grep -qE '@TARGET_(USER|HOME)@' "$tmp"; then
-			rm -f -- "$tmp"
-			_minx_fail "Unexpanded placeholders in: $destination"
-			return 1
-		fi
+		#
+		# Install generated file
+		#
 
 		if ! chown root:root "$tmp" ||
 			! chmod "$mode" "$tmp" ||
@@ -839,6 +938,8 @@ minx_install_system_services() { # {{{
 	# Install generated files
 	#
 
+	printf '\n%s\n' "=> Rendering system service templates"
+
 	_minx_install_template "$service_src" "$service_dst" 0644 || return 1
 	_minx_install_template "$dispatcher_src" "$dispatcher_dst" 0755 || return 1
 
@@ -857,6 +958,7 @@ minx_install_system_services() { # {{{
 
 			if [[ -e "$link" || -L "$link" ]]; then
 				_minx_diag "Removing old link: $link"
+
 				if ! rm -f -- "$link"; then
 					_minx_fail "Failed to remove: $link"
 				fi
@@ -888,7 +990,7 @@ minx_install_system_services() { # {{{
 	((failed == 0)) || return 1
 
 	#
-	# Reload and validate systemd
+	# Reload systemd
 	#
 
 	printf '\n%s\n' "=> Reloading systemd"
@@ -898,12 +1000,20 @@ minx_install_system_services() { # {{{
 		return 1
 	fi
 
+	#
+	# Verify service template
+	#
+
 	printf '\n%s\n' "=> Verifying service template"
 
 	if ! systemd-analyze verify "$service_dst"; then
 		_minx_fail "systemd verification failed"
 		return 1
 	fi
+
+	#
+	# Verify service instances
+	#
 
 	for service_instance in "${service_instances[@]}"; do
 		printf '\n%s\n' "=> Verifying $service_instance"
@@ -933,6 +1043,17 @@ minx_install_system_services() { # {{{
 
 		if [[ "$(systemctl show "$service_instance" -p FragmentPath --value)" != "$service_dst" ]]; then
 			_minx_fail "$service_instance uses an unexpected unit file"
+		fi
+
+		# An empty or unresolved executable is never acceptable.
+		local exec_start
+		exec_start=$(systemctl show "$service_instance" -p ExecStart --value) || {
+			_minx_fail "Unable to inspect ExecStart: $service_instance"
+			continue
+		}
+
+		if [[ -z "$exec_start" || "$exec_start" == *'@MINX_'* || "$exec_start" == *'@@'* ]]; then
+			_minx_fail "Invalid or unresolved ExecStart: $service_instance"
 		fi
 
 		systemctl cat "$service_instance" || {
@@ -1001,6 +1122,10 @@ minx_install_system_services() { # {{{
 		systemctl status "$service_instance" --no-pager || true
 	done
 
+	#
+	# Final result
+	#
+
 	if ((failed != 0)); then
 		printf '\n%s\n' "[FAIL] Installation completed with diagnostic failures" >&2
 		return 1
@@ -1008,6 +1133,7 @@ minx_install_system_services() { # {{{
 
 	printf '\n%s\n' "=> [PASS] System services installed and diagnostics completed"
 	return 0
+
 } # }}}
 
 minx_install_tt() { #{{{
