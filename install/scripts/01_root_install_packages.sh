@@ -335,7 +335,6 @@ _install_firmware() {
 
 _install_base() {
 	local system=(
-		sudo
 		polkitd
 		libpam-systemd
 		bash-completion
@@ -351,7 +350,6 @@ _install_base() {
 		less
 		locate
 		rfkill
-		systemd-timesyncd
 		tmux
 		uuid-runtime
 		dosfstools
@@ -361,6 +359,8 @@ _install_base() {
 		vnstati
 		sshfs
 		socat
+		khal
+		ranger
 	)
 
 	local docs_and_files=(
@@ -390,6 +390,7 @@ _install_base() {
 		pass-extension-otp
 		pinentry-curses
 		pwgen
+		keepassxc
 	)
 
 	_install_packages \
@@ -419,14 +420,13 @@ _install_dev() {
 		clang-tidy
 		clang-format
 		clang-tools
-		doxygen
-		plantuml
 	)
 
+	# python3-venv instead of python3-full: no IDLE/Tk.
 	local python=(
 		python3
 		python3-dev
-		python3-full
+		python3-venv
 		python3-pip
 		pipx
 	)
@@ -437,11 +437,9 @@ _install_dev() {
 		libxml2-dev
 		libreadline-dev
 		libncurses-dev
-		libgcr-3-dev
 		libgirepository1.0-dev
 		libglib2.0-dev
 		libgdk-pixbuf-2.0-dev
-		libpurple-dev
 	)
 
 	# One MPI stack (OpenMPI); HDF5 is built against it.
@@ -518,6 +516,7 @@ _install_gpu() {
 # ----------------------------------------------------------------------
 
 _install_desktop() {
+	# No xserver-xorg-video-all: the modesetting driver is the X11 default.
 	local x11=(
 		xorg
 		xorg-dev
@@ -537,7 +536,6 @@ _install_desktop() {
 		libnotify-bin
 		libinput-tools
 		ueberzug
-		xserver-xorg-video-all
 	)
 
 	# GPU drivers are handled by _install_gpu.
@@ -564,12 +562,16 @@ _install_desktop() {
 		wireplumber
 	)
 
+	# Brother: printer-driver-brlaser covers many Brother laser printers.
+	# Newer models also work driverless over IPP (cups + avahi), and
+	# sane-airscan does the same for scanning.
 	local printing_and_scanning=(
 		cups
+		avahi-daemon
 		avahi-utils
-		printer-driver-all
-		sane-utils
 		system-config-printer
+		sane-airscan
+		sane-utils
 		gscan2pdf
 		simple-scan
 		tesseract-ocr
@@ -624,22 +626,21 @@ _install_desktop() {
 		libasound2
 	)
 
+	# curl, jq and xdg-utils come from base/x11.
 	local calix=(
-		curl
-		jq
 		tar
 		libgtk-4-1
 		libadwaita-1-0
-		xdg-utils
 		gnome-keyring
 	)
 
-	local jdk
-	jdk="$(_first_available openjdk-25-jdk openjdk-21-jdk)" || {
-		printf 'No OpenJDK JDK package found.\n' >&2
+	# LanguageTool only needs a Java runtime, not the JDK.
+	local jre
+	jre="$(_first_available openjdk-25-jre openjdk-21-jre)" || {
+		printf 'No OpenJDK JRE package found.\n' >&2
 		return 1
 	}
-	printf '=> Using %s\n' "$jdk"
+	printf '=> Using %s\n' "$jre"
 
 	_install_packages \
 		"${x11[@]}" \
@@ -650,7 +651,7 @@ _install_desktop() {
 		"${apps[@]}" \
 		"${qutebrowser_libs[@]}" \
 		"${calix[@]}" \
-		"$jdk"
+		"$jre"
 
 	_install_gpu
 
