@@ -72,3 +72,19 @@ version_shfmt=v3.14.1
 
 version_calix=0.10.0
 url_calix=https://github.com/ianswope/calix/releases
+
+# pipx packages
+
+version_pipx_black=26.10.1
+version_pipx_flake8=7.5.0
+version_pipx_isort=9.0.2
+version_pipx_mypy=2.4.1
+version_pipx_pre_commit=4.7.0
+version_pipx_proselint=0.16.0
+version_pipx_pycln=2.6.1
+version_pipx_pylint=4.1.4
+version_pipx_shellcheck_py=0.11.0.1
+version_pipx_vale=3.27.0.0
+version_pipx_vdirsyncer=0.21.0
+version_pipx_yamllint=1.38.0
+version_pipx_yt_dlp=2026.10.26

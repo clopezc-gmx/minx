@@ -341,32 +341,26 @@ minx_install_nodejs_packages() { # {{{
 
 minx_install_pipx_packages() { # {{{
 	local pipx_packages=(
-		black
-		flake8
-		isort
-		khal
-		mypy
-		pre-commit
-		proselint
-		pycln
-		pylint
-		ranger-fm
-		shellcheck-py
-		task-tui
-		vale
-		vdirsyncer
-		yamllint
-		yt-dlp
+		black=="${MINX_PINNED_VERSIONS[version_pipx_black]}"
+		flake8=="${MINX_PINNED_VERSIONS[version_pipx_flake8]}"
+		isort=="${MINX_PINNED_VERSIONS[version_pipx_isort]}"
+		mypy=="${MINX_PINNED_VERSIONS[version_pipx_mypy]}"
+		pre-commit=="${MINX_PINNED_VERSIONS[version_pipx_pre_commit]}"
+		proselint=="${MINX_PINNED_VERSIONS[version_pipx_proselint]}"
+		pycln=="${MINX_PINNED_VERSIONS[version_pipx_pycln]}"
+		pylint=="${MINX_PINNED_VERSIONS[version_pipx_pylint]}"
+		shellcheck-py=="${MINX_PINNED_VERSIONS[version_pipx_shellcheck_py]}"
+		vale=="${MINX_PINNED_VERSIONS[version_pipx_vale]}"
+		vdirsyncer=="${MINX_PINNED_VERSIONS[version_pipx_vdirsyncer]}"
+		yamllint=="${MINX_PINNED_VERSIONS[version_pipx_yamllint]}"
+		yt-dlp=="${MINX_PINNED_VERSIONS[version_pipx_yt_dlp]}"
 	)
-	local pkg
 
 	_minx_header "pipx packages"
 
 	minx_assert_is_non_root "$0" || return 1
 
-	for pkg in "${pipx_packages[@]}"; do
-		pipx install "$pkg"
-	done
+	pipx install "${pipx_packages[@]}"
 
 	_minx_msg "Done"
 } # }}}
@@ -383,6 +377,7 @@ minx_install_go_packages() { # {{{
 	go install "${go_packages[@]}"
 
 	_minx_msg "Make sure PATH contains: $(go env GOPATH)/bin/"
+
 	_minx_msg "Done"
 } # }}}
 
