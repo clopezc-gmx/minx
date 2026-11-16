@@ -8,7 +8,7 @@ readonly LOGFILE="/var/log/minx/sleep_dispatch.log"
 
 readonly TARGET_USER="@TARGET_USER@"
 readonly TARGET_HOME="@TARGET_HOME@"
-readonly HOOKS_DIR="/opt/minx/runtime/user/hooks"
+readonly HOOKS_DIR="@@MINX_INSTALLATION_DIR@@/runtime/user/hooks"
 
 _log() { # {{{
 	local message="$*"

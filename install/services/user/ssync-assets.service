@@ -3,5 +3,5 @@ Description=Synchronize assets
 
 [Service]
 Type=oneshot
-Environment="PATH=/opt/minx/runtime/user/bin/:/usr/local/bin:/usr/bin:/bin:%h/.local/bin"
-ExecStart= /opt/minx/runtime/user/bin/ssync.sh assets
+Environment="PATH=@@MINX_INSTALLATION_DIR@@/runtime/user/bin/:/usr/local/bin:/usr/bin:/bin:%h/.local/bin"
+ExecStart= @@MINX_INSTALLATION_DIR@@/runtime/user/bin/ssync.sh assets

@@ -3,5 +3,5 @@ Description=Synchronize time tracking
 
 [Service]
 Type=oneshot
-Environment="PATH=/opt/minx/runtime/user/bin/:/opt/minx/timewarrior/bin/:/usr/local/bin:/usr/bin:%h/.local/bin"
-ExecStart= /opt/minx/runtime/user/bin/ssync.sh ta
+Environment="PATH=@@MINX_INSTALLATION_DIR@@/runtime/user/bin/:@@MINX_INSTALLATION_DIR@@/timewarrior/bin/:/usr/local/bin:/usr/bin:%h/.local/bin"
+ExecStart= @@MINX_INSTALLATION_DIR@@/runtime/user/bin/ssync.sh ta

@@ -6,9 +6,9 @@ Type=simple
 WorkingDirectory=%h
 
 ExecStart=/usr/bin/java \
-    -cp /opt/minx/languagetool/LanguageTool-6.9-SNAPSHOT/languagetool-server.jar \
+    -cp @@MINX_INSTALLATION_DIR@@/languagetool/LanguageTool-6.9-SNAPSHOT/languagetool-server.jar \
     org.languagetool.server.HTTPServer \
-    --config /opt/minx/languagetool/server.properties \
+    --config @@MINX_INSTALLATION_DIR@@/languagetool/server.properties \
     --port 8085 \
     --allow-origin
 

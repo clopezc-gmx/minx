@@ -3,5 +3,5 @@ Description=Synchronize Taskwarrior
 
 [Service]
 Type=oneshot
-Environment="PATH=/opt/minx/runtime/user/bin/:/opt/minx/taskwarrior/bin/:/usr/local/bin:/usr/bin:/bin"
-ExecStart= /opt/minx/runtime/user/bin/ssync.sh taskwarrior
+Environment="PATH=@@MINX_INSTALLATION_DIR@@/runtime/user/bin/:@@MINX_INSTALLATION_DIR@@/taskwarrior/bin/:/usr/local/bin:/usr/bin:/bin"
+ExecStart= @@MINX_INSTALLATION_DIR@@/runtime/user/bin/ssync.sh taskwarrior

@@ -5,8 +5,8 @@ Description=Flask WikiView Service
 Type=simple
 WorkingDirectory=%h/.wikiviewer
 
-ExecStart=%h/repos/personal/mytools.d/wikiviewer/.venv/bin/python \
-    %h/repos/personal/mytools.d/wikiviewer/main.py
+ExecStart=@@MINX_USER_REPOS_DIR@@/personal/mytools.d/wikiviewer/.venv/bin/python \
+    @@MINX_USER_REPOS_DIR@@/personal/mytools.d/wikiviewer/main.py
 
 Environment=DATA_PATH=%h/.wikiviewer
 Environment=PORT=5000
