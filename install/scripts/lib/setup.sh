@@ -340,8 +340,7 @@ minx_install_user_services() { # {{{
 
 	local _is_server="${1:-?Variable not set}"
 	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Different behaviour\n"
-		printf "\n=> [is_server=yes] --  Do nothing\n"
+		printf '%s\n' "=> [is_server=yes] -- Do nothing"
 		return 0
 	fi
 
@@ -350,7 +349,7 @@ minx_install_user_services() { # {{{
 	#
 
 	if ! systemctl --user show-environment >/dev/null 2>&1; then
-		printf '%s\n' "=> Error: systemd user session is not available."
+		printf '%s\n' "=> Error: systemd user session is not available." >&2
 		return 1
 	fi
 
@@ -417,31 +416,183 @@ minx_install_user_services() { # {{{
 	}
 
 	#
-	# Install units
+	# Prepare temporary installation directory
 	#
 
-	printf '%s\n' "=> Installing user systemd units to $dest_dir"
+	local tmp_dir
+
+	tmp_dir="$(mktemp -d -- "$dest_dir/.minx-services.XXXXXX")" || {
+		printf '%s\n' "=> [FAIL] Cannot create temporary directory" >&2
+		return 1
+	}
+
+	#
+	# Render service templates
+	#
+
+	printf '%s\n' "=> Rendering user systemd units"
 
 	local unit
 	local src
 	local dst
+	local name
+	local ref
+	local legacy
+	local escaped
+
+	local -a profile_vars=()
+	local -a sed_args=()
 
 	for unit in "${!units[@]}"; do
 		src="${units[$unit]}"
-		dst="$dest_dir/$unit"
+		dst="$tmp_dir/$unit"
 
-		if [[ ! -f "$src" ]]; then
-			printf '%s\n' "=> [FAIL] Missing unit file: $src" >&2
+		if [[ ! -r "$src" ]]; then
+			printf '%s\n' "=> [FAIL] Cannot read unit template: $src" >&2
+			rm -rf -- "$tmp_dir"
 			return 1
 		fi
 
-		install -m 0644 -- "$src" "$dst" || {
-			printf '%s\n' "=> [FAIL] Failed to install: $dst" >&2
+		#
+		# Find MINX_* placeholders
+		#
+
+		mapfile -t profile_vars < <(
+			grep -o '@@MINX_[A-Z0-9_]*@@' "$src" |
+				sort -u |
+				sed -e 's/^@@MINX_//' -e 's/@@$//'
+		)
+
+		sed_args=()
+
+		#
+		# Build sed expressions
+		#
+
+		for name in "${profile_vars[@]}"; do
+			ref="MINX_$name"
+			legacy="MXC_$name"
+
+			# Fall back to MXC_* if MINX_* is unset or empty.
+			if [[ -z "${!ref:-}" && -n "${!legacy:-}" ]]; then
+				printf -v "$ref" '%s' "${!legacy}"
+			fi
+
+			if [[ -z "${!ref:-}" ]]; then
+				printf '%s\n' \
+					"=> [FAIL] $ref (or $legacy) is not set or empty" >&2
+				rm -rf -- "$tmp_dir"
+				return 1
+			fi
+
+			# Escape sed replacement characters.
+			escaped=$(printf '%s' "${!ref}" | sed 's/[\\&|]/\\&/g') || {
+				rm -rf -- "$tmp_dir"
+				return 1
+			}
+
+			sed_args+=(-e "s|@@MINX_${name}@@|${escaped}|g")
+		done
+
+		#
+		# Render or copy template
+		#
+
+		if ((${#sed_args[@]} > 0)); then
+			if ! sed "${sed_args[@]}" "$src" >"$dst"; then
+				printf '%s\n' "=> [FAIL] Failed to render: $src" >&2
+				rm -rf -- "$tmp_dir"
+				return 1
+			fi
+		else
+			printf '%s\n' "=> No placeholders in $unit"
+
+			if ! cp -- "$src" "$dst"; then
+				printf '%s\n' "=> [FAIL] Failed to copy: $src" >&2
+				rm -rf -- "$tmp_dir"
+				return 1
+			fi
+		fi
+
+		#
+		# Check unresolved placeholders
+		#
+
+		if grep -q '@@[A-Z0-9_]*@@' "$dst"; then
+			printf '%s\n' "=> [FAIL] Unresolved placeholder in: $src" >&2
+			rm -rf -- "$tmp_dir"
+			return 1
+		fi
+
+		chmod 0644 -- "$dst" || {
+			printf '%s\n' "=> [FAIL] Failed to set permissions: $dst" >&2
+			rm -rf -- "$tmp_dir"
 			return 1
 		}
 
-		printf '%s\n' "=> - $dst"
+		printf '%s\n' "=> [PASS] Rendered $unit"
 	done
+
+	#
+	# Stop and disable existing units
+	#
+
+	printf '%s\n' "=> Stopping and disabling existing user units"
+
+	for unit in "${!units[@]}"; do
+		systemctl --user disable --now "$unit" >/dev/null 2>&1 || true
+	done
+
+	#
+	# Uninstall existing units
+	#
+
+	printf '%s\n' "=> Removing existing user units"
+
+	for unit in "${!units[@]}"; do
+		dst="$dest_dir/$unit"
+
+		if [[ -e "$dst" ]]; then
+			rm -f -- "$dst" || {
+				printf '%s\n' "=> [FAIL] Failed to remove: $dst" >&2
+				rm -rf -- "$tmp_dir"
+				return 1
+			}
+
+			printf '%s\n' "=> - $dst"
+		fi
+	done
+
+	#
+	# Reload systemd after removal
+	#
+
+	systemctl --user daemon-reload || {
+		printf '%s\n' "=> [FAIL] systemd daemon-reload failed" >&2
+		rm -rf -- "$tmp_dir"
+		return 1
+	}
+
+	#
+	# Install rendered units
+	#
+
+	printf '%s\n' "=> Installing rendered user systemd units"
+
+	for unit in "${!units[@]}"; do
+		src="$tmp_dir/$unit"
+		dst="$dest_dir/$unit"
+
+		install -m 0644 -- "$src" "$dst" || {
+			printf '%s\n' "=> [FAIL] Failed to install: $dst" >&2
+			rm -rf -- "$tmp_dir"
+			return 1
+		}
+
+		printf '%s\n' "=> [PASS] Installed $unit"
+	done
+
+	rm -rf -- "$tmp_dir"
 
 	#
 	# Reload user systemd
@@ -455,16 +606,14 @@ minx_install_user_services() { # {{{
 	}
 
 	#
-	# Enable + start
+	# Enable and start units
 	#
 
 	printf '%s\n' "=> Enabling and starting user units"
 
 	for unit in "${enabled_units[@]}"; do
 		if ! systemctl --user enable --now "$unit"; then
-			printf '%s\n' \
-				"=> [FAIL] Failed to enable/start $unit" >&2
-
+			printf '%s\n' "=> [FAIL] Failed to enable/start $unit" >&2
 			systemctl --user status "$unit" --no-pager || true
 			return 1
 		fi
@@ -483,11 +632,12 @@ minx_install_user_services() { # {{{
 			printf '%s\n' "=> [PASS] $unit is active"
 		else
 			printf '%s\n' "=> [FAIL] $unit is not active" >&2
-
 			systemctl --user status "$unit" --no-pager || true
 			return 1
 		fi
 	done
+
+	printf '%s\n' "=> User services successfully installed"
 
 } # }}}
 

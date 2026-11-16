@@ -9,7 +9,7 @@
 #   ./11_inspect_user_services.sh --logs
 #   ./11_inspect_user_services.sh --verify
 #   ./11_inspect_user_services.sh --logs --verify
-#   ./11_inspect_user_services.sh --unit-dir /path/to/services/user
+#   ./11_inspect_user_services.sh --unit-dir ../services/user
 #
 # Read-only by default.
 # Never starts, stops, restarts or enables services.
@@ -378,7 +378,7 @@ done
 
 log "11. Application health checks"
 
-LANGUAGETOOL_TEST="$SCRIPT_DIR/test_languagetool_service.sh"
+LANGUAGETOOL_TEST="$SCRIPT_DIR/../services/user/test_languagetool_service.sh"
 
 if [[ -x "$LANGUAGETOOL_TEST" ]]; then
 
