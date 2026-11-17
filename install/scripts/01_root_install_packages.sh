@@ -360,7 +360,6 @@ _install_base() {
 		sshfs
 		socat
 		khal
-		ranger
 	)
 
 	local docs_and_files=(

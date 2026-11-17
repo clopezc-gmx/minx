@@ -88,3 +88,4 @@ version_pipx_vale=3.27.0.0
 version_pipx_vdirsyncer=0.21.0
 version_pipx_yamllint=1.38.0
 version_pipx_yt_dlp=2026.10.26
+version_pipx_ranger=1.9.4

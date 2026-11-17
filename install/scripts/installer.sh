@@ -349,6 +349,7 @@ minx_install_pipx_packages() { # {{{
 		proselint=="${MINX_PINNED_VERSIONS[version_pipx_proselint]}"
 		pycln=="${MINX_PINNED_VERSIONS[version_pipx_pycln]}"
 		pylint=="${MINX_PINNED_VERSIONS[version_pipx_pylint]}"
+		ranger-fm=="${MINX_PINNED_VERSIONS[version_pipx_ranger]}"
 		shellcheck-py=="${MINX_PINNED_VERSIONS[version_pipx_shellcheck_py]}"
 		vale=="${MINX_PINNED_VERSIONS[version_pipx_vale]}"
 		vdirsyncer=="${MINX_PINNED_VERSIONS[version_pipx_vdirsyncer]}"
@@ -360,7 +361,7 @@ minx_install_pipx_packages() { # {{{
 
 	minx_assert_is_non_root "$0" || return 1
 
-	pipx install "${pipx_packages[@]}"
+	pipx install --force "${pipx_packages[@]}"
 
 	_minx_msg "Done"
 } # }}}
