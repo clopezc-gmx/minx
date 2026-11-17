@@ -175,7 +175,7 @@ _connect_ssh_server() { # {{{
 
 _launch_mail() { # {{{
 	local account_type="${1:-notmuch}"
-	local account_name="${2:-gmail}"
+	local account_name="${2:-unified}"
 	shift 2
 
 	env TASK_SHELL=1 bash -ic "MAIL_ACCOUNT=$account_name-$account_type neomutt -F $HOME/.config/neomutt/neomuttrc-$account_type $*"
