@@ -317,7 +317,7 @@ _sync_mail() { # {{{
 		esac
 	fi
 
-	_require_commands mbsync notmuch flock date mv rm || return 1
+	_require_commands mbsync notmuch muchsync flock date mv rm || return 1
 
 	mkdir -p -- "$lock_dir" || return 1
 	chmod 700 -- "$state_dir" "$lock_dir" || return 1
@@ -354,7 +354,7 @@ _sync_mail() { # {{{
 		return 1
 	fi
 
-	# Update the local notmuch database.
+	# Update the local notmuch database (runs the post-new hook).
 	printf 'notmuch: start\n' >&2
 
 	if notmuch new; then
@@ -365,7 +365,28 @@ _sync_mail() { # {{{
 		return "$status"
 	fi
 
-	# Record completion only after every step succeeds.
+	# Replicate Maildir files and tags to the server.
+	# Failure is non-fatal: the local sync already succeeded.
+	if [[ -n "${MINX_REMOTE_SSH_SERVER:-}" ]]; then
+		printf 'muchsync: start\n' >&2
+
+		(
+			if ! flock -n 9; then
+				printf 'muchsync: skipped, already running\n' >&2
+				exit 0
+			fi
+
+			if muchsync --nonew "$MINX_REMOTE_SSH_SERVER"; then
+				printf 'muchsync: success\n' >&2
+			else
+				printf 'muchsync: failed (exit %d)\n' "$?" >&2
+			fi
+		) 9>"$lock_dir/muchsync.lock"
+	else
+		printf 'muchsync: skipped, MINX_REMOTE_SSH_SERVER is not set\n' >&2
+	fi
+
+	# Record completion only after the local steps succeed.
 	if ! date '+%Y%m%dT%H%M' >"$tmp_file"; then
 		printf 'Failed to write synchronization timestamp\n' >&2
 		rm -f -- "$tmp_file"
