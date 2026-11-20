@@ -2,6 +2,7 @@
 # shellcheck disable=SC1091 # path is resolved at runtime.
 
 set -euo pipefail
+# set -x
 
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
