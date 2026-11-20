@@ -373,18 +373,6 @@ _install_base() { #{{{
 		unison
 	)
 
-	local mail_and_web=(
-		neomutt
-		w3m
-		urlview
-		urlscan
-		newsboat
-		notmuch
-		abook
-		msmtp
-		isync
-	)
-
 	local secrets=(
 		pass
 		pass-extension-otp
@@ -396,7 +384,6 @@ _install_base() { #{{{
 	_install_packages \
 		"${system[@]}" \
 		"${docs_and_files[@]}" \
-		"${mail_and_web[@]}" \
 		"${secrets[@]}"
 } # }}}
 
@@ -457,8 +444,6 @@ _install_dev() { #{{{
 		libhdf5-openmpi-dev
 		libhwloc-dev
 		gnuplot
-		vite
-		xdot
 	)
 
 	_install_packages \
@@ -605,6 +590,20 @@ _install_desktop() { # {{{
 		rofi
 		qalc
 		bat
+		vite
+		xdot
+	)
+
+	local mail_and_web=(
+		neomutt
+		w3m
+		urlview
+		urlscan
+		newsboat
+		notmuch
+		abook
+		msmtp
+		isync
 	)
 
 	# Runtime libraries for a pip/venv qutebrowser.
@@ -654,6 +653,7 @@ _install_desktop() { # {{{
 		"${apps[@]}" \
 		"${qutebrowser_libs[@]}" \
 		"${calix[@]}" \
+		"${mail_and_web[@]}" \
 		"$jre"
 
 	_install_gpu
@@ -828,7 +828,7 @@ main() {
 		printf '\nLOG: %s\n' "$logfile"
 		_print_reboot_msg
 	else
-		printf '\nFAILED (exit %d). LOG: %s\n' "$rc" "$logfile" >&2
+		printf '\nFAILED (exit %d)\nLOG: %s\n' "$rc" "$logfile" >&2
 	fi
 	return "$rc"
 }

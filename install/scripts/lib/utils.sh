@@ -949,7 +949,7 @@ minx_assert_is_desktop_install() { # {{{
 	installation_type="$(minx_load_installation_type)" || return 1
 
 	if [[ "$installation_type" != desktop ]]; then
-		minx_fail "minx_assert_is_desktop_install: desktop != $installation_type"
+		minx_fail "minx_assert_is_desktop_install: $installation_type != desktop"
 		return 1
 	fi
 } # }}}
@@ -960,7 +960,7 @@ minx_assert_is_server_install() { # {{{
 	installation_type="$(minx_load_installation_type)" || return 1
 
 	if [[ "$installation_type" != server ]]; then
-		minx_fail "minx_assert_is_server_install: server != $installation_type"
+		minx_fail "minx_assert_is_server_install: $installation_type != server"
 		return 1
 	fi
 } # }}}

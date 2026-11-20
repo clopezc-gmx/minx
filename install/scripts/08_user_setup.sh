@@ -18,14 +18,15 @@ fi
 
 main() {
 
-	local is_server
-	[ "${1:?variable not set use --server or --laptop}" == "--server" ] && is_server="yes" || is_server="no"
-
-	local option="${2:---help}"
+	local option="${1:---help}"
 
 	case "$option" in
+	"--get-vim-vundle")
+		minx_get_vim_vundle || return 1
+		;;
+
 	"--clone-personal-repos")
-		minx_clone_personal_repos "$is_server" || return 1
+		minx_clone_personal_repos || return 1
 		;;
 
 	"--install-tt")
@@ -39,24 +40,20 @@ main() {
 		;;
 
 	"--restore-rc-files")
-		minx_backup_user_rc_files "$is_server" || return 1
-		minx_restore_user_rc_files "$is_server" || return 1
+		minx_backup_user_rc_files || return 1
+		minx_restore_user_rc_files || return 1
 		;;
 
 	"--install-mime-types")
-		minx_install_mime_types "$is_server" || return 1
+		minx_install_mime_types || return 1
 		;;
 
 	"--init-mail")
-		minx_init_mail "$is_server" || return 1
+		minx_init_mail || return 1
 		;;
 
 	"--install-services")
-		minx_install_user_services "$is_server" || return 1
-		;;
-
-	"--get-vim-vundle")
-		minx_get_vim_vundle "$is_server" || return 1
+		minx_install_user_services || return 1
 		;;
 
 	"--help")

@@ -13,6 +13,8 @@ if ((EUID == 0)); then
 	exit 1
 fi
 
+minx_assert_is_desktop_install
+
 main() {
 
 	local action="${1:-"--help"}"

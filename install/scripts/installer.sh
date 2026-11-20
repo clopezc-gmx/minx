@@ -311,6 +311,8 @@ minx_install_qemu() ( # {{{
 		libvirt-clients
 		virt-manager
 	)
+
+	# shellcheck disable=SC2034 # Passed as reference
 	local target_user target_home
 
 	minx_skip_in_server_install "QEMU" && return 0
@@ -525,6 +527,8 @@ minx_install_taskwarrior() ( # {{{
 	local build_dir="$repo_dir/_build"
 	local install_dir="$MINX_INSTALLATION_DIR/taskwarrior"
 
+	minx_assert_is_desktop_install
+
 	_minx_header "$repo_dir"
 
 	_minx_assert_phase_user || return 1
@@ -558,6 +562,8 @@ minx_install_timewarrior() ( # {{{
 	local repo_dir="$MINX_REPOS_DIR/timewarrior"
 	local build_dir="$repo_dir/_build"
 	local install_dir="$MINX_INSTALLATION_DIR/timewarrior"
+
+	minx_assert_is_desktop_install
 
 	_minx_header "$repo_dir"
 
@@ -681,6 +687,8 @@ minx_install_languagetool() ( # {{{
 	# The model is fetched and verified by download_repos.sh (remote server).
 	local ft_model_file="$src_dir/lid.176.bin"
 	local ft_model_sha256="${MINX_PINNED_VERSIONS[sha256_fasttext_model]:-}"
+
+	minx_assert_is_desktop_install
 
 	_minx_header "languagetool with fasttext"
 
@@ -813,6 +821,8 @@ minx_install_pdfjs() ( # {{{
 	local repo_dir="$MINX_REPOS_DIR/pdfjs"
 	local install_dir="$MINX_INSTALLATION_DIR/pdfjs"
 	local build_output="$repo_dir/build/generic"
+
+	minx_assert_is_desktop_install
 
 	minx_skip_unless_built "$ACTION" "pdf.js" "$build_output" && return 0
 
@@ -982,6 +992,7 @@ minx_install_invariant_repos() ( # {{{
 
 	_minx_header "tmpi"
 	_minx_checkout tmpi || return 1
+
 	file_map["$HOME/.local/bin/tmpi"]="$MINX_REPOS_DIR/tmpi/tmpi"
 
 	# Desktop-only pieces.
@@ -989,6 +1000,8 @@ minx_install_invariant_repos() ( # {{{
 		_minx_header "qb dracula theme"
 		_minx_checkout qutebrowser_dracula_theme \
 			"$MINX_INSTALLER_PATCHES_DIR/qutebrowser_dracula_theme.diff" || return 1
+
+		# shellcheck disable=SC2034 # Passed as reference
 		file_map["$HOME/.config/qutebrowser/dracula"]="$MINX_REPOS_DIR/qutebrowser_dracula_theme"
 
 		_minx_header "linux a11y sound theme"
