@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
 source "$SCRIPT_DIR/lib/list_dispatch_options.sh"
+source "$SCRIPT_DIR/lib/utils.sh"
 
 if ((EUID == 0)); then
 	printf '%s\n' "=> Run this script as a non-root user." >&2
