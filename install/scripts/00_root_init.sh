@@ -22,6 +22,8 @@ main() {
 	local device_type
 	local cpu_vendor
 	local backports
+	local installation_type=${1:-"desktop"}
+	local minx_installation_type
 
 	minx_header "L1" "$(lsb_release -a)"
 
@@ -37,6 +39,19 @@ main() {
 	minx_write_info "device_type" "$device_type"
 	minx_write_info "hostname" "$hostname"
 
+	if [[ -e "$MINX_INFO_DIR/minx_installation_type" ]]; then
+
+		minx_installation_type=$(minx_load_installation_type)
+
+		if [[ "$minx_installation_type" != "$installation_type" ]]; then
+			printf 'ERROR:\nIt seems like you want to have a different installation.\nRemove the entire MINX installation and reinstall it again, otherwise things might not work properly.\n' >&2
+			exit 1
+		fi
+	else
+		minx_write_info "minx_installation_type" "$installation_type"
+		minx_installation_type="$installation_type"
+	fi
+
 	# ----------------------------------------------------------------------
 	# Summary
 	# ----------------------------------------------------------------------
@@ -47,11 +62,12 @@ main() {
 
 Configuration summary:
 ----------------------
-BACKPORTS   = $backports
-CODENAME    = $codename
-CPU_VENDOR  = $cpu_vendor
-DEVICE_TYPE = $device_type
-HOSTNAME    = $hostname
+BACKPORTS         = $backports
+CODENAME          = $codename
+CPU_VENDOR        = $cpu_vendor
+DEVICE_TYPE       = $device_type
+HOSTNAME          = $hostname
+INSTALLATION_TYPE = $minx_installation_type
 EOF
 
 	"$SCRIPT_DIR/installer.sh" --install runtime || return 1
@@ -59,4 +75,4 @@ EOF
 	printf "\nLOG: %s\n" "$LOGFILE"
 }
 
-_run_and_log main
+_run_and_log main "$@"

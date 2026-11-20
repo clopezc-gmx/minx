@@ -1,103 +1,185 @@
 #!/usr/bin/env bash
+#
+# Installs one application per call.
+#
+# Usage: install_apps.sh <--build|--install> <app>
+#
+# Two-phase apps are built as the regular user (--build) and installed as root
+# (--install). Single-phase apps ignore the phase and run entirely as root or
+# entirely as the regular user; each installer asserts what it needs.
+#
+# shellcheck disable=SC1090,SC1091 # sourced paths are resolved at runtime
+# shellcheck disable=SC2329 # functions are called indirectly
 
-# shellcheck disable=SC1091 # global variables
-# shellcheck disable=SC1090
 set -euo pipefail
-# set -x
 
 # Setup
 # ----------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+
+# Every app "<name>" is installed by the function minx_install_<name>.
+readonly -a APPS=(
+	calix
+	ctags
+	dwm
+	go
+	go_packages
+	invariant_repos
+	jetbrains_mono
+	languagetool
+	librewolf
+	nodejs_packages
+	nvm_and_nodejs
+	onlyoffice
+	pdfjs
+	pipx_packages
+	qemu
+	qutebrowser
+	runtime
+	rust_and_cargo
+	sent
+	slock
+	spotify
+	st
+	taskwarrior
+	timewarrior
+	vim
+)
+
+_minx_usage() {
+	printf 'Usage: %s <--build|--install> <app>\n\nApps:\n' "${0##*/}" >&2
+	printf '  %s\n' "${APPS[@]}" >&2
+}
+
+_minx_is_app() { # <name>
+	local app
+	for app in "${APPS[@]}"; do
+		[[ "$app" == "$1" ]] && return 0
+	done
+	return 1
+}
+
+# Validate the arguments before anything else (APP ends up in a file name).
+case "${1:-}" in
+--build | --install) ;;
+*)
+	_minx_usage
+	exit 2
+	;;
+esac
+
+if ! _minx_is_app "${2:-}"; then
+	_minx_usage
+	exit 2
+fi
+
+readonly ACTION="$1"
+readonly APP="$2"
+
 source "$SCRIPT_DIR/lib/utils.sh"
 minx_test_all_info || exit 1
 
-readonly ACTION="${1:-variable not set}"
-
-readonly APP="${2:-variable not set}"
-
 LOGFILE="$MINX_LOG_DIR/$(minx_get_script_name)_${APP}_$(minx_get_date).log"
+
+readonly LOGFILE
 
 # Helpers
 # ----------------------------------------------------------------------
 
-_minx_msg() { printf '=> %s\n' "$*"; }
+_minx_header() { # {{{
+	minx_header L1 "[args: $APP $ACTION] $*"
+} #}}}
 
-_minx_fail() {
-	printf '=> [FAIL] %s\n' "$*" >&2
-	return 1
-}
-
-_minx_header() { minx_header "L1" "[args: $APP $ACTION] $*"; }
-
-_minx_is_build() { [[ $ACTION == "--build" ]]; }
+_minx_is_build() { #{{{
+	[[ "$ACTION" == "--build" ]]
+} #}}}
 
 # Build runs as the regular user, install runs as root.
-_minx_assert_phase_user() {
+_minx_assert_phase_user() { #{{{
 	if _minx_is_build; then
-		minx_assert_is_non_root "$0"
+		minx_assert_is_non_root
 	else
-		minx_assert_is_root "$0"
+		minx_assert_is_root
 	fi
-}
+} #}}}
 
-_minx_require_file() { [[ -f $1 ]] || _minx_fail "${2:-File} not found: $1"; }
-_minx_require_dir() { [[ -d $1 ]] || _minx_fail "${2:-Directory} not found: $1"; }
-_minx_require_exec() { [[ -x $1 ]] || _minx_fail "${2:-Executable} not found: $1"; }
+_minx_require_file() { #{{{
+	[[ -f "$1" ]] || minx_fail "${2:-File} not found: $1"
+} #}}}
 
-_minx_git_trust() { git config --global --add safe.directory "$1"; }
+_minx_require_dir() { #{{{
+	[[ -d "$1" ]] || minx_fail "${2:-Directory} not found: $1"
+} #}}}
 
-# Remove and recreate a directory.
-_minx_fresh_dir() {
+_minx_require_exec() { #{{{
+	[[ -x "$1" ]] || minx_fail "${2:-Executable} not found: $1"
+} #}}}
+
+# Trust a repo owned by another user (root builds/installs in user-owned repos).
+# Idempotent: git config --add would otherwise append a duplicate on every run.
+_minx_git_trust() { # <dir> #{{{
+	local existing
+	existing="$(git config --global --get-all safe.directory 2>/dev/null || true)"
+
+	if grep -Fxq -- "$1" <<<"$existing"; then
+		return 0
+	fi
+
+	git config --global --add safe.directory "$1"
+} #}}}
+
+# Remove and recreate a directory below the installation dir.
+_minx_fresh_dir() { # <dir> #{{{
 	minx_safe_rm_dir "$1" && mkdir -p -- "$1"
-}
+} #}}}
 
-# Clone a pinned project (url_<name>, commit_<name>) into $MINX_REPOS_DIR/<name>.
-_minx_checkout_pinned() { # <name>
+# Clone a pinned project (url_<name>, commit_<name>) into $MINX_REPOS_DIR/<name>,
+# optionally applying a patch.
+_minx_checkout() { # <name> [patch_file] #{{{
 	local name="$1"
-
-	minx_git_clone_at_commit \
-		"$MINX_REPOS_DIR/$name" \
-		"${MINX_PINNED_VERSIONS[url_$name]}" \
-		"${MINX_PINNED_VERSIONS[commit_$name]}"
-}
-
-# Same, with an optional patch file.
-_minx_checkout_patched() { # <name> [patch-file]
-	local name="$1" patch="${2:-}"
+	local patch="${2:-}"
 
 	minx_git_clone_and_patch \
 		"$MINX_REPOS_DIR/$name" \
 		"${MINX_PINNED_VERSIONS[url_$name]}" \
 		"${MINX_PINNED_VERSIONS[commit_$name]}" \
 		${patch:+"$patch"}
-}
+} #}}}
 
-_minx_download_or_clean() { # <url> <destination>
-	minx_download_file "$1" "$2" || {
-		rm -f -- "$2"
+# nvm is not nounset-safe (it reads unset variables), so this switches nounset
+# off for the rest of the calling installer. Only call it inside an installer
+# subshell, never from top level.
+_minx_load_nvm() { #{{{
+	export NVM_DIR="$HOME/.nvm"
+
+	if [[ ! -s "$NVM_DIR/nvm.sh" ]]; then
+		minx_fail "nvm not found: $NVM_DIR/nvm.sh"
 		return 1
-	}
-}
+	fi
 
-_minx_load_nvm() {
-	NVM_DIR="$HOME/.nvm"
-	[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-	[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-	return 0
-}
+	set +u
+	source "$NVM_DIR/nvm.sh"
+} #}}}
 
-_minx_load_cargo() {
-	# shellcheck disable=SC1091
-	source "$HOME/.cargo/env"
-}
+_minx_load_cargo() { #{{{
+	local env_file="$HOME/.cargo/env"
+
+	if [[ ! -f "$env_file" ]]; then
+		minx_fail "cargo environment not found: $env_file"
+		return 1
+	fi
+
+	source "$env_file"
+} #}}}
 
 # Run "<bin_dir>/<binary> <args>" as a smoke test, then add bin_dir to PATH.
 # --lenient: ignore the exit status of the binary (suckless tools exit 1 on -v).
-_minx_verify_bin() { # [--lenient] <bin_dir> <binary> [args...]
+_minx_verify_bin() { # [--lenient] <bin_dir> <binary> [args...] # {{{
 	local lenient=0
 
-	if [[ ${1:-} == --lenient ]]; then
+	if [[ "${1:-}" == --lenient ]]; then
 		lenient=1
 		shift
 	fi
@@ -105,110 +187,123 @@ _minx_verify_bin() { # [--lenient] <bin_dir> <binary> [args...]
 	local bin_dir="$1" bin="$2"
 	shift 2
 
-	_minx_msg "Verify ..."
+	minx_log "Verify ..."
 
 	if ! "$bin_dir/$bin" "$@"; then
 		((lenient)) || return 1
 	fi
 
 	minx_add_to_PATH "$bin_dir"
-}
+} #}}}
 
-_minx_cmake_build() { # <repo_dir> <build_dir> <install_dir>
+_minx_cmake_build() { # <repo_dir> <build_dir> <install_dir> #{{{
 	cmake -S "$1" -B "$2" \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX="$3" || return 1
 
 	cmake --build "$2" --parallel "$(nproc)"
-}
+} #}}}
 
 # Install a file with explicit mode, with the usual log lines.
-_minx_install_file() { # <mode> <source> <destination> <label>
-	_minx_msg "Installing $4"
-	_minx_msg "Source:      $2"
-	_minx_msg "Destination: $3"
+_minx_install_file() { # <mode> <source> <destination> <label> #{{{
+	minx_log "Installing $4"
+	minx_log "Source:      $2"
+	minx_log "Destination: $3"
 
-	install -m "$1" -- "$2" "$3" || _minx_fail "Failed to install: $3"
-}
+	install -m "$1" -- "$2" "$3" || minx_fail "Failed to install: $3"
+} #}}}
 
-# Append an apt source line unless it is already present.
-_minx_add_apt_source() { # <file> <line>
-	grep -qxF -- "$2" "$1" 2>/dev/null ||
-		printf '%s\n' "$2" | sudo tee -a "$1"
-}
+_minx_apt_install() { # <package>... #{{{
+	apt-get update || return 1
+	apt-get install -y "$@"
+} #}}}
 
-# Installers
+# Write a one-line apt source file (overwrites, so re-runs never duplicate it).
+_minx_write_apt_source() { # <file> <line> #{{{
+	printf '%s\n' "$2" >"$1"
+} #}}}
+
+# Installers (each one runs in a subshell: cd, trap and set do not leak)
 # ----------------------------------------------------------------------
 
 minx_install_go() ( # {{{
 	local version="${MINX_PINNED_VERSIONS[version_go]}"
 	local tarball="go${version}.linux-amd64.tar.gz"
 	local url="${MINX_PINNED_VERSIONS[url_go]}$tarball"
+	local sha256="${MINX_PINNED_VERSIONS[sha256_go]:-}" # optional
 	local dst_file="$MINX_DOWNLOADS_DIR/$tarball"
 
 	_minx_header "Install Go $version"
 
-	minx_assert_is_root "$0" || return 1
+	minx_assert_is_root || return 1
 
 	minx_safe_rm_dir "$MINX_INSTALLATION_DIR/go" || return 1
 
-	_minx_download_or_clean "$url" "$dst_file" || return 1
+	minx_download_file "$url" "$dst_file" "$sha256" || return 1
 
-	_minx_msg "Installing ..."
+	minx_log "Installing ..."
 
-	tar -C "$MINX_INSTALLATION_DIR" -xzf "$dst_file" || {
-		rm -f -- "$dst_file"
+	if ! tar -C "$MINX_INSTALLATION_DIR" -xzf "$dst_file"; then
+		rm -f -- "$dst_file" # most likely a corrupt download
+		minx_fail "Failed to extract $dst_file"
 		return 1
-	}
-
-	_minx_msg "Verifying installation ..."
+	fi
 
 	_minx_verify_bin "$MINX_INSTALLATION_DIR/go/bin" go version || return 1
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
 minx_install_jetbrains_mono() ( # {{{
-	local font_version="${MINX_PINNED_VERSIONS[version_jetbrains_mono]}"
-	local font_name="JetBrainsMono"
+	local version="${MINX_PINNED_VERSIONS[version_jetbrains_mono]}"
+	local zip_file="JetBrainsMono.zip"
+	local url="${MINX_PINNED_VERSIONS[url_jetbrains_mono]}/download/${version}/${zip_file}"
+	local sha256="${MINX_PINNED_VERSIONS[sha256_jetbrains_mono]:-}" # optional
+	local dst_file="$MINX_DOWNLOADS_DIR/$zip_file"
 	local font_dir="/usr/share/fonts/jetbrains-mono"
-	local zip_file="${font_name}.zip"
-	local download_url="${MINX_PINNED_VERSIONS[url_jetbrains_mono]}/download/${font_version}/${zip_file}"
-	local dst_file="$MINX_REPOS_DIR/download/$zip_file"
+	local tmp_dir
 
-	# NOTE: literal "font_name" (probably meant $font_name); kept as it was.
-	local install_dir="$MINX_INSTALLATION_DIR/font_name"
+	minx_skip_in_server_install "JetBrains Mono" && return 0
 
-	minx_skip_headless "JetBrains Mono" && return 0
+	_minx_header "Install JetBrains Mono $version"
 
-	_minx_header "Install JetBrains Mono $font_version"
+	minx_assert_is_root || return 1
 
-	minx_assert_is_root "$0" || return 1
-
-	if [[ -d "$font_dir" ]]; then
-		_minx_msg "JetBrains Mono already installed."
+	if compgen -G "$font_dir/*.ttf" >/dev/null; then
+		minx_log "JetBrains Mono already installed."
 		return 0
 	fi
 
-	_minx_download_or_clean "$download_url" "$dst_file" || return 1
+	minx_download_file "$url" "$dst_file" "$sha256" || return 1
 
-	_minx_msg "Installing ..."
+	tmp_dir="$(mktemp -d -p /tmp)" || return 1
+	# shellcheck disable=SC2064 # expand now: the variable is gone at exit
+	trap "minx_safe_rm_dir ${tmp_dir@Q}" EXIT
 
-	unzip -q "$dst_file" -d "$install_dir" || return 1
+	minx_log "Installing ..."
 
-	mkdir -p -- "$font_dir"
+	unzip -q "$dst_file" -d "$tmp_dir" ||
+		{
+			minx_fail "Failed to extract $dst_file"
+			return 1
+		}
 
-	while IFS= read -r -d '' file; do
-		cp -- "$file" "$font_dir/"
-	done < <(find "$install_dir" -type f -iname '*.ttf' -print0)
+	mkdir -p -- "$font_dir" || return 1
 
-	fc-cache -f
+	find "$tmp_dir" -type f -iname '*.ttf' -exec cp -t "$font_dir" -- {} + || return 1
 
-	_minx_msg "Done"
+	if ! compgen -G "$font_dir/*.ttf" >/dev/null; then
+		minx_fail "No .ttf files found in $dst_file"
+		return 1
+	fi
+
+	fc-cache -f || return 1
+
+	minx_log "Done"
 ) # }}}
 
 minx_install_qemu() ( # {{{
-	local packages=(
+	local -a packages=(
 		qemu-system
 		qemu-utils
 		qemu-kvm
@@ -216,80 +311,72 @@ minx_install_qemu() ( # {{{
 		libvirt-clients
 		virt-manager
 	)
-	local loguser
+	local target_user target_home
 
-	minx_skip_headless "QEMU" && return 0
+	minx_skip_in_server_install "QEMU" && return 0
 
 	_minx_header "QEMU"
 
-	minx_assert_is_root "$0" || return 1
+	minx_assert_is_root || return 1
 
-	_minx_msg "Updating package index..."
-	apt update
+	minx_log "Installing QEMU and related packages..."
+	_minx_apt_install "${packages[@]}" || return 1
 
-	_minx_msg "Installing QEMU and related packages..."
-	apt install -y "${packages[@]}"
-
-	_minx_msg "Checking virtualization support..."
+	minx_log "Checking virtualization support..."
 
 	if grep -Eq '(vmx|svm)' /proc/cpuinfo; then
-		_minx_msg "CPU virtualization supported."
+		minx_log "CPU virtualization supported."
 	else
-		_minx_msg "Warning: CPU virtualization not detected."
+		minx_warn "CPU virtualization not detected."
 	fi
-
-	_minx_msg "Checking /dev/kvm..."
 
 	if [[ -e /dev/kvm ]]; then
-		_minx_msg "/dev/kvm exists."
+		minx_log "/dev/kvm exists."
 	else
-		_minx_msg "Warning: /dev/kvm not found."
+		minx_warn "/dev/kvm not found."
 	fi
 
-	loguser="$(logname)"
+	minx_get_target_info target_user target_home || return 1
 
-	_minx_msg "Adding $loguser to kvm and libvirt groups..."
-	usermod -aG kvm "$loguser"
-	usermod -aG libvirt "$loguser"
+	minx_log "Adding $target_user to kvm and libvirt groups..."
+	usermod -aG kvm,libvirt "$target_user" || return 1
 
-	_minx_msg "Enabling and starting libvirt service..."
-	systemctl enable --now libvirtd
+	minx_log "Enabling and starting libvirt service..."
+	systemctl enable --now libvirtd || return 1
 
-	_minx_msg "Verifying installation..."
+	minx_log "Verifying installation..."
 
-	if command -v qemu-system-x86_64 >/dev/null 2>&1; then
-		qemu-system-x86_64 --version
+	if minx_command_exists qemu-system-x86_64; then
+		qemu-system-x86_64 --version || return 1
 	else
-		_minx_msg "Warning: qemu-system-x86_64 not found in PATH."
+		minx_warn "qemu-system-x86_64 not found in PATH."
 	fi
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
 minx_install_rust_and_cargo() ( # {{{
-	local rustup_url="https://sh.rustup.rs"
-
 	_minx_header "Rust and cargo"
 
-	minx_assert_is_non_root "$0" || return 1
+	minx_assert_is_non_root || return 1
 
 	if ! minx_command_exists rustup; then
-		_minx_msg "Installing rustup ..."
-		curl --proto '=https' --tlsv1.2 -sSf "$rustup_url" | sh -s -- -y
+		minx_log "Installing rustup ..."
+		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || return 1
 	fi
 
-	_minx_msg "Installing toolchain ..."
+	minx_log "Installing toolchain ..."
 
 	_minx_load_cargo || return 1
-	rustup toolchain install stable
-	rustup default stable
+	rustup toolchain install stable || return 1
+	rustup default stable || return 1
 
-	_minx_msg "Verify ..."
+	minx_log "Verify ..."
 
-	rustc --version
-	cargo --version
+	rustc --version || return 1
+	cargo --version || return 1
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
 minx_install_nvm_and_nodejs() ( # {{{
@@ -299,48 +386,49 @@ minx_install_nvm_and_nodejs() ( # {{{
 
 	_minx_header "nvm and node.js"
 
-	minx_assert_is_non_root "$0" || return 1
+	minx_assert_is_non_root || return 1
 
-	rm -rf -- "$HOME/.nvm"
+	# A clean reinstall is intended.
+	rm -rf -- "$HOME/.nvm" || return 1
 
-	_minx_msg "Installing NVM $nvm_version"
+	minx_log "Installing NVM $nvm_version"
 
-	curl -o- "$url" | bash
+	curl -fsSL "$url" | bash || return 1
 
-	_minx_msg "Installing ..."
+	minx_log "Installing ..."
 
-	_minx_load_nvm
+	_minx_load_nvm || return 1
 
-	nvm install "$nodejs_version"
-	nvm alias default "$nodejs_version"
-	nvm use default
+	nvm install "$nodejs_version" || return 1
+	nvm alias default "$nodejs_version" || return 1
+	nvm use default || return 1
 
-	_minx_msg "Verify ..."
+	minx_log "Verify ..."
 
-	node --version
-	npm --version
+	node --version || return 1
+	npm --version || return 1
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
-minx_install_nodejs_packages() { # {{{
-	local nodejs_packages=(
+minx_install_nodejs_packages() ( # {{{
+	local -a packages=(
 		markdownlint-cli
 	)
 
 	_minx_header "node.js packages"
 
-	minx_assert_is_non_root "$0" || return 1
+	minx_assert_is_non_root || return 1
 
-	_minx_load_nvm
+	_minx_load_nvm || return 1
 
-	npm install -g "${nodejs_packages[@]}"
+	npm install -g "${packages[@]}" || return 1
 
-	_minx_msg "Done"
-} # }}}
+	minx_log "Done"
+) # }}}
 
-minx_install_pipx_packages() { # {{{
-	local pipx_packages=(
+minx_install_pipx_packages() ( # {{{
+	local -a packages=(
 		black=="${MINX_PINNED_VERSIONS[version_pipx_black]}"
 		flake8=="${MINX_PINNED_VERSIONS[version_pipx_flake8]}"
 		isort=="${MINX_PINNED_VERSIONS[version_pipx_isort]}"
@@ -356,42 +444,62 @@ minx_install_pipx_packages() { # {{{
 		yamllint=="${MINX_PINNED_VERSIONS[version_pipx_yamllint]}"
 		yt-dlp=="${MINX_PINNED_VERSIONS[version_pipx_yt_dlp]}"
 	)
+	local package
+	local -a failed=()
 
 	_minx_header "pipx packages"
 
-	minx_assert_is_non_root "$0" || return 1
+	minx_assert_is_non_root || return 1
 
-	pipx install --force "${pipx_packages[@]}"
+	# One package per call: older pipx versions accept only one spec, and a
+	# failure then names the package instead of aborting the whole batch.
+	for package in "${packages[@]}"; do
+		pipx install --force "$package" || failed+=("$package")
+	done
 
-	_minx_msg "Done"
-} # }}}
+	if ((${#failed[@]} > 0)); then
+		minx_fail "pipx failed for: ${failed[*]}"
+		return 1
+	fi
 
-minx_install_go_packages() { # {{{
-	local go_packages=(
+	minx_log "Done"
+) # }}}
+
+minx_install_go_packages() ( # {{{
+	local -a packages=(
 		mvdan.cc/sh/v3/cmd/shfmt@"${MINX_PINNED_VERSIONS[version_shfmt]}"
 	)
 
-	_minx_header "go_packages"
+	_minx_header "go packages"
 
-	minx_assert_is_non_root "$0" || return 1
+	minx_assert_is_non_root || return 1
 
-	go install "${go_packages[@]}"
+	# go is installed system-wide, but PATH only picks it up in new login shells.
+	if ! minx_command_exists go; then
+		PATH="$MINX_INSTALLATION_DIR/go/bin:$PATH"
+	fi
 
-	_minx_msg "Make sure PATH contains: $(go env GOPATH)/bin/"
+	minx_command_exists go || {
+		minx_fail "go not found; install it first"
+		return 1
+	}
 
-	_minx_msg "Done"
-} # }}}
+	go install "${packages[@]}" || return 1
+
+	minx_log "Make sure PATH contains: $(go env GOPATH)/bin/"
+	minx_log "Done"
+) # }}}
 
 minx_install_ctags() ( # {{{
 	local repo_dir="$MINX_REPOS_DIR/ctags"
 	local install_dir="$MINX_INSTALLATION_DIR/ctags"
 
-	_minx_header "$install_dir"
+	_minx_header "$repo_dir"
 
 	_minx_assert_phase_user || return 1
 
 	if _minx_is_build; then
-		_minx_checkout_pinned ctags || return 1
+		_minx_checkout ctags || return 1
 
 		cd -- "$repo_dir" || return 1
 
@@ -401,8 +509,7 @@ minx_install_ctags() ( # {{{
 	else
 		cd -- "$repo_dir" || return 1
 
-		_minx_git_trust "$repo_dir"
-
+		_minx_git_trust "$repo_dir" || return 1
 		_minx_fresh_dir "$install_dir" || return 1
 
 		make install || return 1
@@ -410,7 +517,7 @@ minx_install_ctags() ( # {{{
 		_minx_verify_bin "$install_dir/bin" ctags --version || return 1
 	fi
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
 minx_install_taskwarrior() ( # {{{
@@ -425,15 +532,16 @@ minx_install_taskwarrior() ( # {{{
 	if _minx_is_build; then
 		_minx_load_cargo || return 1
 
-		_minx_checkout_pinned taskwarrior || return 1
+		# Also updates submodules.
+		_minx_checkout taskwarrior || return 1
 
 		cd -- "$repo_dir" || return 1
 
-		git submodule update --init --recursive
-		rustup update stable
+		rustup update stable || return 1
 
-		rm -rf -- "$build_dir"
+		minx_safe_rm_dir "$build_dir" || return 1
 
+		minx_log "Building ..."
 		_minx_cmake_build "$repo_dir" "$build_dir" "$install_dir" || return 1
 	else
 		_minx_fresh_dir "$install_dir" || return 1
@@ -443,7 +551,7 @@ minx_install_taskwarrior() ( # {{{
 		_minx_verify_bin "$install_dir/bin" task --version || return 1
 	fi
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
 minx_install_timewarrior() ( # {{{
@@ -456,14 +564,12 @@ minx_install_timewarrior() ( # {{{
 	_minx_assert_phase_user || return 1
 
 	if _minx_is_build; then
-		_minx_checkout_pinned timewarrior || return 1
+		# Also updates submodules.
+		_minx_checkout timewarrior || return 1
 
 		cd -- "$repo_dir" || return 1
 
-		git submodule update --init --recursive
-
-		_minx_msg "Building ... "
-
+		minx_log "Building ..."
 		_minx_cmake_build "$repo_dir" "$build_dir" "$install_dir" || return 1
 	else
 		_minx_fresh_dir "$install_dir" || return 1
@@ -473,9 +579,10 @@ minx_install_timewarrior() ( # {{{
 		_minx_verify_bin "$install_dir/bin" timew --version || return 1
 	fi
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
+# Single-phase installer: builds and installs in one go, as root.
 minx_install_qutebrowser() ( # {{{
 	local repo_dir="$MINX_REPOS_DIR/qutebrowser"
 	local install_dir="$MINX_INSTALLATION_DIR/qutebrowser/bin"
@@ -483,25 +590,22 @@ minx_install_qutebrowser() ( # {{{
 	local python="$repo_dir/.venv/bin/python"
 	local script="$repo_dir/qutebrowser.py"
 
-	minx_skip_headless "qutebrowser" && return 0
+	minx_skip_in_server_install "qutebrowser" && return 0
 
 	_minx_header "$repo_dir"
 
-	minx_assert_is_root "$0" || return 1
+	minx_assert_is_root || return 1
 
-	_minx_git_trust "$repo_dir"
+	_minx_git_trust "$repo_dir" || return 1
+	_minx_checkout qutebrowser || return 1
 
-	_minx_checkout_pinned qutebrowser || return 1
-
-	_minx_msg "Building ... "
+	minx_log "Building ..."
 
 	cd -- "$repo_dir" || return 1
 
-	_minx_git_trust .
-
 	python3 scripts/mkvenv.py || return 1
 
-	_minx_msg "Installing ... "
+	minx_log "Installing ..."
 
 	_minx_fresh_dir "$install_dir" || return 1
 
@@ -512,11 +616,11 @@ minx_install_qutebrowser() ( # {{{
 
 	chmod +x "$executable" || return 1
 
-	_minx_msg "Verify ..."
+	minx_log "Verify ..."
 
 	minx_run "$executable" -h || return 1
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
 minx_install_vim() ( # {{{
@@ -528,13 +632,16 @@ minx_install_vim() ( # {{{
 	_minx_assert_phase_user || return 1
 
 	if _minx_is_build; then
-		_minx_checkout_pinned vim || return 1
+		minx_command_exists python3 || {
+			minx_fail "python3 not found"
+			return 1
+		}
+
+		_minx_checkout vim || return 1
 
 		cd -- "$repo_dir" || return 1
 
 		make distclean || true
-
-		minx_command_exists python3 || return 1
 
 		./configure \
 			--with-features=huge \
@@ -556,51 +663,49 @@ minx_install_vim() ( # {{{
 		_minx_verify_bin "$install_dir/usr/local/bin" vim --version || return 1
 	fi
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
-minx_install_languagetool() { # {{{
-	local lt_src_dir="$MINX_REPOS_DIR/languagetool"
-	local lt_install_dir="$MINX_INSTALLATION_DIR/languagetool"
+minx_install_languagetool() ( # {{{
+	local src_dir="$MINX_REPOS_DIR/languagetool"
+	local install_dir="$MINX_INSTALLATION_DIR/languagetool"
 
-	local lt_snapshot="${MINX_PINNED_VERSIONS[snapshot_languagetool]}"
-	local lt_zip_file="$lt_src_dir/$lt_snapshot"
-	local lt_url="${MINX_PINNED_VERSIONS[url_languagetool]}/$lt_snapshot"
+	local snapshot="${MINX_PINNED_VERSIONS[snapshot_languagetool]}"
+	local zip_file="$src_dir/$snapshot"
+	local url="${MINX_PINNED_VERSIONS[url_languagetool]}/$snapshot"
+	local zip_sha256="${MINX_PINNED_VERSIONS[sha256_languagetool]:-}" # optional
 
-	local ft_repo_dir="$lt_src_dir/fastText"
+	local ft_repo_dir="$src_dir/fastText"
 	local ft_binary_src="$ft_repo_dir/fasttext"
 
 	# The model is fetched and verified by download_repos.sh (remote server).
-	local ft_model_file="$lt_src_dir/lid.176.bin"
+	local ft_model_file="$src_dir/lid.176.bin"
 	local ft_model_sha256="${MINX_PINNED_VERSIONS[sha256_fasttext_model]:-}"
 
 	_minx_header "languagetool with fasttext"
 
-	_minx_msg "Instructions provided at: https://dev.languagetool.org/http-server"
+	minx_log "Instructions provided at: https://dev.languagetool.org/http-server"
+
 	# ------------------------------------------------------------------
 	# Build
 	# ------------------------------------------------------------------
 
 	if _minx_is_build; then
-		minx_assert_is_non_root "$0" || return 1
+		minx_assert_is_non_root || return 1
 
-		mkdir -p -- "$lt_src_dir" || return 1
+		mkdir -p -- "$src_dir" || return 1
 
-		if minx_path_exists "$lt_zip_file"; then
-			_minx_msg "LanguageTool already downloaded."
-		else
-			_minx_msg "Downloading LanguageTool..."
-			minx_download_file "$lt_url" "$lt_zip_file" || return 1
-		fi
+		minx_log "Downloading LanguageTool..."
+		minx_download_file "$url" "$zip_file" "$zip_sha256" || return 1
 
-		_minx_require_file "$lt_zip_file" "LanguageTool archive" || return 1
+		_minx_require_file "$zip_file" "LanguageTool archive" || return 1
 
 		minx_git_clone_at_commit \
 			"$ft_repo_dir" \
 			"${MINX_PINNED_VERSIONS[url_fasttext]}" \
 			"${MINX_PINNED_VERSIONS[commit_fasttext]}" || return 1
 
-		_minx_msg "Building fastText..."
+		minx_log "Building fastText..."
 
 		make -C "$ft_repo_dir" clean || return 1
 		make -C "$ft_repo_dir" -j"$(nproc)" || return 1
@@ -608,15 +713,14 @@ minx_install_languagetool() { # {{{
 		_minx_require_exec "$ft_binary_src" "fastText binary" || return 1
 
 		if [[ ! -f "$ft_model_file" ]]; then
-			_minx_fail "Language identification model not found: $ft_model_file"
-			_minx_msg "Run download_repos.sh first (fetches it from the remote server)." >&2
+			minx_fail "Language identification model not found: $ft_model_file (run download_repos.sh first, it fetches the model from the remote server)"
 			return 1
 		fi
 
 		# Never deletes the file on mismatch, so it can be inspected.
 		minx_verify_sha256 "$ft_model_file" "$ft_model_sha256" || return 1
 
-		_minx_msg "Build complete."
+		minx_log "Build complete."
 		return 0
 	fi
 
@@ -624,9 +728,12 @@ minx_install_languagetool() { # {{{
 	# Install
 	# ------------------------------------------------------------------
 
-	minx_assert_is_root "$0" || return 1
+	local archive_listing lt_dir lt_root
+	local ft_binary_dst ft_model_dst server_properties
 
-	_minx_require_file "$lt_zip_file" "LanguageTool archive" || return 1
+	minx_assert_is_root || return 1
+
+	_minx_require_file "$zip_file" "LanguageTool archive" || return 1
 	_minx_require_exec "$ft_binary_src" "fastText binary" || return 1
 	_minx_require_file "$ft_model_file" "fastText model" || return 1
 
@@ -634,104 +741,116 @@ minx_install_languagetool() { # {{{
 	# verify it again right before copying it.
 	minx_verify_sha256 "$ft_model_file" "$ft_model_sha256" || return 1
 
-	_minx_fresh_dir "$lt_install_dir" || _minx_fail "Failed to create: $lt_install_dir" || return 1
+	_minx_fresh_dir "$install_dir" ||
+		{
+			minx_fail "Failed to create: $install_dir"
+			return 1
+		}
 
-	_minx_msg "Determining LanguageTool directory"
-
-	local archive_listing lt_dir
+	minx_log "Determining LanguageTool directory"
 
 	# Captured first: piping unzip into awk's early exit would fail under pipefail.
-	archive_listing="$(unzip -Z1 "$lt_zip_file" 2>/dev/null)" ||
-		_minx_fail "Failed to inspect archive: $lt_zip_file" || return 1
+	archive_listing="$(unzip -Z1 "$zip_file" 2>/dev/null)" ||
+		{
+			minx_fail "Failed to inspect archive: $zip_file"
+			return 1
+		}
 
 	lt_dir="$(
 		printf '%s\n' "$archive_listing" |
 			awk -F/ 'NF > 1 && $1 != "" { print $1; exit }'
 	)"
 
-	[[ -n $lt_dir ]] ||
-		_minx_fail "Could not determine LanguageTool directory from: $lt_zip_file" || return 1
+	if [[ -z "$lt_dir" ]]; then
+		minx_fail "Could not determine LanguageTool directory from: $zip_file"
+		return 1
+	fi
 
-	_minx_msg "LanguageTool directory: $lt_dir"
-	_minx_msg "Extracting LanguageTool"
+	minx_log "LanguageTool directory: $lt_dir"
+	minx_log "Extracting LanguageTool"
 
-	unzip -q "$lt_zip_file" -d "$lt_install_dir" ||
-		_minx_fail "Failed to extract LanguageTool" || return 1
+	unzip -q "$zip_file" -d "$install_dir" ||
+		{
+			minx_fail "Failed to extract LanguageTool"
+			return 1
+		}
 
-	local lt_root="$lt_install_dir/$lt_dir"
+	lt_root="$install_dir/$lt_dir"
 
 	_minx_require_dir "$lt_root" "LanguageTool directory" || return 1
-	_minx_msg "LanguageTool installed: $lt_root"
 
-	local ft_binary_dst="$lt_root/${ft_binary_src##*/}"
-	local ft_model_dst="$lt_root/${ft_model_file##*/}"
+	ft_binary_dst="$lt_root/${ft_binary_src##*/}"
+	ft_model_dst="$lt_root/${ft_model_file##*/}"
 
 	_minx_install_file 0755 "$ft_binary_src" "$ft_binary_dst" "fastText binary" || return 1
 	_minx_install_file 0644 "$ft_model_file" "$ft_model_dst" "language identification model" || return 1
 
-	local server_properties="$lt_install_dir/server.properties"
+	server_properties="$install_dir/server.properties"
 
-	_minx_msg "Creating server.properties"
-	_minx_msg "Config: $server_properties"
+	minx_log "Creating $server_properties"
 
 	{
 		printf 'fasttextModel=%s\n' "$ft_model_dst"
 		printf 'fasttextBinary=%s\n' "$ft_binary_dst"
 	} >"$server_properties" ||
-		_minx_fail "Failed to create: $server_properties" || return 1
-
-	[[ -s "$server_properties" ]] ||
-		_minx_fail "server.properties is empty: $server_properties" || return 1
-
-	_minx_msg "Validating LanguageTool installation"
+		{
+			minx_fail "Failed to create: $server_properties"
+			return 1
+		}
 
 	_minx_require_file "$lt_root/languagetool-server.jar" "LanguageTool server JAR" || return 1
 
-	_minx_msg "LanguageTool installation complete."
-	_minx_msg "LanguageTool: $lt_root"
-	_minx_msg "Server JAR:   $lt_root/languagetool-server.jar"
-	_minx_msg "fastText:     $ft_binary_dst"
-	_minx_msg "Model:        $ft_model_dst"
-	_minx_msg "Config:       $server_properties"
-	_minx_msg "Done"
-} # }}}
+	minx_log "LanguageTool installation complete."
+	minx_log "LanguageTool: $lt_root"
+	minx_log "Server JAR:   $lt_root/languagetool-server.jar"
+	minx_log "fastText:     $ft_binary_dst"
+	minx_log "Model:        $ft_model_dst"
+	minx_log "Config:       $server_properties"
+	minx_log "Done"
+) # }}}
 
 minx_install_pdfjs() ( # {{{
 	local repo_dir="$MINX_REPOS_DIR/pdfjs"
 	local install_dir="$MINX_INSTALLATION_DIR/pdfjs"
+	local build_output="$repo_dir/build/generic"
 
-	minx_skip_unless_built "$ACTION" "pdf.js" "$repo_dir/build/generic" && return 0
+	minx_skip_unless_built "$ACTION" "pdf.js" "$build_output" && return 0
 
-	_minx_header "$install_dir"
-
-	_minx_load_nvm
+	_minx_header "$repo_dir"
 
 	_minx_assert_phase_user || return 1
 
 	if _minx_is_build; then
-		_minx_checkout_pinned pdfjs || return 1
+		_minx_load_nvm || return 1
+
+		_minx_checkout pdfjs || return 1
 
 		cd -- "$repo_dir" || return 1
 
 		# Remove stale output so a skipped rebuild can't leave an old build behind.
-		rm -rf -- "$repo_dir/build/generic"
+		minx_safe_rm_dir "$build_output" || return 1
 
-		_minx_msg "Building ..."
+		minx_log "Building ..."
 
 		npm ci || return 1
 		npx gulp generic || return 1
 	else
+		minx_command_exists rsync || {
+			minx_fail "rsync not found"
+			return 1
+		}
+
 		_minx_fresh_dir "$install_dir" || return 1
 
-		_minx_msg "Installing ..."
+		minx_log "Installing ..."
 
-		rsync -a "$repo_dir/build/generic/" "$install_dir/" || return 1
+		rsync -a "$build_output/" "$install_dir/" || return 1
 
-		mkdir -p /usr/share/pdf.js
-		minx_symlink "$install_dir/web" /usr/share/pdf.js/web
-		minx_symlink "$install_dir/build" /usr/share/pdf.js/build
+		mkdir -p /usr/share/pdf.js || return 1
+		minx_symlink "$install_dir/web" /usr/share/pdf.js/web || return 1
+		minx_symlink "$install_dir/build" /usr/share/pdf.js/build || return 1
 
-		_minx_msg "Verify"
+		minx_log "Verify"
 
 		_minx_require_dir "$install_dir/web" || return 1
 		_minx_require_dir "$install_dir/build" || return 1
@@ -739,79 +858,52 @@ minx_install_pdfjs() ( # {{{
 		[[ -L /usr/share/pdf.js/build ]] || return 1
 	fi
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
-minx_install_runtime() { # {{{
-	minx_header "L1" "[args: $APP $ACTION] $MINX_REPOS_DIR/$APP"
-
-	minx_assert_is_root "$0" || exit 1
-
-	# An empty or relative installation dir would turn the `rm -rf` below
-	# into `rm -rf /runtime` or something relative to the current directory.
-	if [[ -z "${MINX_INSTALLATION_DIR:-}" ]]; then
-		printf '%s\n' "=> ERROR: MINX_INSTALLATION_DIR is not set or empty" >&2
-		exit 1
-	fi
-
-	if [[ "$MINX_INSTALLATION_DIR" != /?* || "$MINX_INSTALLATION_DIR" == "/" ]]; then
-		printf '%s\n' "=> ERROR: MINX_INSTALLATION_DIR must be an absolute path other than /: $MINX_INSTALLATION_DIR" >&2
-		exit 1
-	fi
-
+# Single-phase installer: always runs as root.
+minx_install_runtime() ( # {{{
 	local runtime_dir="$MINX_INSTALLATION_DIR/runtime"
 	local profile_file="/etc/profile.d/minx_profile.sh"
 	local profile_template="$MINX_INSTALLER_ROOT/install/config/template_minx_profile.sh"
 	local version_script="$runtime_dir/system/bin/minx-version"
+	local answer=""
 
-	# Variable names are read from the template: @@MINX_<name>@@ is replaced
-	# by the value of MINX_<name> (falling back to MXC_<name>, the config-file
-	# name, if MINX_<name> is unset or empty).
-	local -a profile_vars=()
-	local -a sed_args=()
-	local name ref legacy escaped answer tmp_profile
+	_minx_header "$runtime_dir"
 
-	if [[ ! -r "$profile_template" ]]; then
-		printf '%s\n' "=> ERROR: cannot read template: $profile_template" >&2
-		exit 1
-	fi
+	minx_assert_is_root || return 1
 
-	mapfile -t profile_vars < <(
-		grep -o '@@MINX_[A-Z0-9_]*@@' "$profile_template" |
-			sort -u | sed -e 's/^@@MINX_//' -e 's/@@$//'
-	)
-
-	# grep exits 1 on no match and mapfile ignores that status. An empty list
-	# would make `sed` treat the template file itself as its script.
-	if ((${#profile_vars[@]} == 0)); then
-		printf '%s\n' "=> ERROR: no @@MINX_<name>@@ placeholders found in $profile_template" >&2
-		exit 1
-	fi
-
-	if [[ -e "$runtime_dir" ]]; then
+	if minx_path_exists "$runtime_dir"; then
 		printf '=> %s already exists. Override? [y/N] ' "$runtime_dir"
-		read -r answer
+		read -r answer || answer=""
 
-		if [[ "$answer" =~ ^[Yy]$ ]]; then
-			rm -rf -- "$runtime_dir" || exit 1
-		else
-			printf '\n%s\n' "=> Skipping 'runtime' installation."
+		if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+			printf '\n'
+			minx_log "Skipping 'runtime' installation."
 			return 0
 		fi
 	fi
 
-	_minx_msg "Copying 'runtime' ..."
+	# Rendered first: a missing variable must not leave a half-replaced runtime.
+	# @@MINX_<name>@@ is replaced by $MINX_<name> (falling back to $MXC_<name>);
+	# unset or empty is an error, as the values end up in /etc/profile.d.
+	minx_log "Installing minx_profile.sh ..."
+	minx_install_rendered_file "$profile_template" "$profile_file" 0644 || return 1
 
-	cp -rf -- "$MINX_INSTALLER_ROOT/runtime" "$runtime_dir" || exit 1
+	minx_safe_rm_dir "$runtime_dir" || return 1
 
-	_minx_msg "Creating minx-version ..."
+	minx_log "Copying 'runtime' ..."
+	minx_copy "$MINX_INSTALLER_ROOT/runtime" "$runtime_dir" || return 1
 
-	mkdir -p -- "${version_script%/*}" || exit 1
+	minx_log "Creating minx-version ..."
 
-	# Unquoted heredoc: only the escaped \$ expressions are evaluated when the
-	# script runs. The installation directory is baked in as a fallback, so the
-	# command also works when MINX_INSTALLATION_DIR is not exported.
-	cat >"$version_script" <<EOF || exit 1
+	mkdir -p -- "${version_script%/*}" || return 1
+
+	# Unquoted heredoc: the escaped \$ expressions are evaluated when the script
+	# runs, everything else (installation dir, date) is baked in now. The
+	# installation dir is a fallback, so the command also works when
+	# MINX_INSTALLATION_DIR is not exported.
+	cat >"$version_script" <<EOF || return 1
 #!/usr/bin/env bash
 #
 # minx-version - print the installed minx version
@@ -828,70 +920,20 @@ fi
 
 printf "%s\n" "Installed on: $(date)"
 printf "%s\n" "commit: \$(cat -- "\$version_file")"
-
 EOF
 
-	chmod 755 -- "$version_script" || exit 1
+	chmod 755 -- "$version_script" || return 1
 
-	if command -v tree >/dev/null 2>&1; then
-		tree "$runtime_dir"
+	if minx_command_exists tree; then
+		tree "$runtime_dir" || true
 	fi
 
-	_minx_msg "Installing minx_profile.sh ..."
-
-	# Build one sed expression per variable. Escape characters that are special
-	# in a sed replacement: \ & and the delimiter |
-	for name in "${profile_vars[@]}"; do
-		ref="MINX_$name"
-		legacy="MXC_$name"
-
-		# Fall back to the config-file name (MXC_*) if the MINX_* one is missing.
-		if [[ -z "${!ref:-}" && -n "${!legacy:-}" ]]; then
-			printf -v "$ref" '%s' "${!legacy}"
-		fi
-
-		# Unset OR empty is an error: an empty value would be baked into
-		# /etc/profile.d and later feed destructive commands (rsync --delete).
-		if [[ -z "${!ref:-}" ]]; then
-			printf '%s\n' "=> ERROR: $ref (or $legacy) is not set or empty" >&2
-			exit 1
-		fi
-
-		escaped=$(printf '%s' "${!ref}" | sed -e 's/[\\&|]/\\&/g') || exit 1
-		sed_args+=(-e "s|@@MINX_${name}@@|${escaped}|g")
-	done
-
-	# Build the profile in a temporary file next to the target (same
-	# filesystem, so the final mv is atomic). The name does not match
-	# profile.d's *.sh glob, so login shells never source a half-built file.
-	tmp_profile="$(mktemp -- "${profile_file%/*}/.minx_profile.XXXXXX")" || exit 1
-
-	# Substitute while copying, so placeholders never land in /etc/profile.d.
-	if ! sed "${sed_args[@]}" "$profile_template" >"$tmp_profile"; then
-		rm -f -- "$tmp_profile"
-		printf '%s\n' "=> ERROR: sed failed while rendering the profile" >&2
-		exit 1
-	fi
-
-	# Catch placeholders that were not substituted (e.g. a leftover @@MXC_...@@).
-	if grep -q '@@[A-Z0-9_]*@@' "$tmp_profile"; then
-		rm -f -- "$tmp_profile"
-		printf '%s\n' "=> ERROR: unresolved placeholder in rendered profile (template: $profile_template)" >&2
-		exit 1
-	fi
-
-	if ! chmod 644 -- "$tmp_profile" || ! mv -f -- "$tmp_profile" "$profile_file"; then
-		rm -f -- "$tmp_profile"
-		printf '%s\n' "=> ERROR: could not install $profile_file" >&2
-		exit 1
-	fi
-
-	_minx_msg "Done"
-} # }}}
+	minx_log "Done"
+) # }}}
 
 # dwm, sent, st and slock share the same build/install scripts.
 # No DISPLAY guard: they are built and installed on every machine.
-_minx_install_suckless() { #{{{
+_minx_install_suckless() ( # {{{
 	# <name> [VAR=value ...]
 	local name="$1"
 	shift
@@ -905,16 +947,16 @@ _minx_install_suckless() { #{{{
 	_minx_assert_phase_user || return 1
 
 	if _minx_is_build; then
-		_minx_checkout_patched "$name" "$MINX_INSTALLER_PATCHES_DIR/suckless/$name.diff" ||
+		_minx_checkout "$name" "$MINX_INSTALLER_PATCHES_DIR/suckless/$name.diff" ||
 			return 1
 
-		_minx_msg "Building ..."
+		minx_log "Building ..."
 
 		env "${build_env[@]}" "$repo_dir/install.sh" --build || return 1
 	else
-		_minx_git_trust "$repo_dir"
+		_minx_git_trust "$repo_dir" || return 1
 
-		_minx_msg "Installing ..."
+		minx_log "Installing ..."
 
 		env "${build_env[@]}" "$repo_dir/install.sh" --install || return 1
 
@@ -922,319 +964,188 @@ _minx_install_suckless() { #{{{
 		_minx_verify_bin --lenient "$install_dir/usr/local/bin" "$name" -v || return 1
 	fi
 
-	_minx_msg "Done"
-}
+	minx_log "Done"
+) # }}}
 
-minx_install_dwm() {
-	_minx_install_suckless dwm \
-		"SCRIPTS_DIR=$MINX_INSTALLATION_DIR/runtime/system/bin"
-} # }}}
-
+minx_install_dwm() { _minx_install_suckless dwm "SCRIPTS_DIR=$MINX_INSTALLATION_DIR/runtime/system/bin"; }
 minx_install_sent() { _minx_install_suckless sent; }
 minx_install_st() { _minx_install_suckless st; }
 minx_install_slock() { _minx_install_suckless slock; }
 
-# shellcheck disable=SC2034 # file_map is passed by name to minx_symlink_map
-minx_install_invariant_repos() { #{{{
+minx_install_invariant_repos() ( # {{{
+	local -A file_map=() # [dst]=src
 
-	minx_assert_is_non_root "$0" || return 1
-
-	local -A file_map=()
+	minx_assert_is_non_root || return 1
 
 	_minx_header "latex snippets"
-	_minx_checkout_patched latex_snippets || return 1
+	_minx_checkout latex_snippets || return 1
 
 	_minx_header "tmpi"
-	_minx_checkout_patched tmpi || return 1
-
-	# [dst]=src
+	_minx_checkout tmpi || return 1
 	file_map["$HOME/.local/bin/tmpi"]="$MINX_REPOS_DIR/tmpi/tmpi"
 
 	# Desktop-only pieces.
-	if ! minx_skip_headless "qb dracula theme and a11y sound theme"; then
+	if ! minx_skip_in_server_install "qb dracula theme and a11y sound theme"; then
 		_minx_header "qb dracula theme"
-		_minx_checkout_patched qutebrowser_dracula_theme \
+		_minx_checkout qutebrowser_dracula_theme \
 			"$MINX_INSTALLER_PATCHES_DIR/qutebrowser_dracula_theme.diff" || return 1
-		file_map["$HOME/.config/qutebrowser/dracula"]="$MINX_REPOS_DIR/qutebrowser_dracula_theme/"
+		file_map["$HOME/.config/qutebrowser/dracula"]="$MINX_REPOS_DIR/qutebrowser_dracula_theme"
 
 		_minx_header "linux a11y sound theme"
-		_minx_checkout_patched linux_a11y_sound_theme || return 1
+		_minx_checkout linux_a11y_sound_theme || return 1
 	fi
 
-	_minx_msg "Install ..."
+	minx_log "Install ..."
 
-	minx_symlink_map file_map
+	minx_symlink_map file_map || return 1
 
-	_minx_msg "Done"
-} # }}}
+	minx_log "Done"
+) # }}}
 
-_parse_arguments() { # {{{
+minx_install_onlyoffice() ( # {{{
+	local keyring="/usr/share/keyrings/onlyoffice.gpg"
+	local source_line="deb [signed-by=$keyring] https://download.onlyoffice.com/repo/debian squeeze main"
+	local tmp_dir
 
-	for arg in "$@"; do
-		case "$arg" in
-		--build) ACTION="--build" ;;
-		--install) ACTION="--install" ;;
-		*)
-			[[ -z "$arg" ]] && continue
-			printf '%s\n' "Invalid argument: $arg"
-			return 1
-			;;
-		esac
-	done
+	minx_skip_in_server_install "Onlyoffice" && return 0
 
-	readonly APP
-	readonly ACTION
-} # }}}
+	_minx_header "Onlyoffice"
 
-minx_install_onlyoffice() {
-	minx_skip_headless "Onlyoffice" && return 0
+	minx_assert_is_root || return 1
 
-	minx_assert_is_root
+	minx_log "Installing ..."
 
-	minx_header "L1" "Onlyoffice"
+	# Throwaway GnuPG home: no predictable file names in /tmp, nothing left
+	# behind in root's home.
+	tmp_dir="$(mktemp -d -p /tmp)" || return 1
+	# shellcheck disable=SC2064 # expand now: the variable is gone at exit
+	trap "minx_safe_rm_dir ${tmp_dir@Q}" EXIT
 
-	_minx_msg "Installing ..."
-
-	mkdir -p ~/.gnupg
-	chmod 700 ~/.gnupg
-
-	gpg \
+	# NOTE: a short key id is spoofable; pin the full fingerprint if you can.
+	GNUPGHOME="$tmp_dir" gpg \
 		--no-default-keyring \
-		--keyring gnupg-ring:/tmp/onlyoffice.gpg \
+		--keyring "gnupg-ring:$tmp_dir/onlyoffice.gpg" \
 		--keyserver hkp://keyserver.ubuntu.com:80 \
-		--recv-keys CB2DE8E5
+		--recv-keys CB2DE8E5 || return 1
 
-	chmod 644 /tmp/onlyoffice.gpg
-	sudo chown root:root /tmp/onlyoffice.gpg
-	sudo mv /tmp/onlyoffice.gpg /usr/share/keyrings/onlyoffice.gpg
+	gpgconf --homedir "$tmp_dir" --kill all || true
 
-	_minx_add_apt_source /etc/apt/sources.list.d/onlyoffice.list \
-		'deb [signed-by=/usr/share/keyrings/onlyoffice.gpg] https://download.onlyoffice.com/repo/debian squeeze main'
+	install -m 0644 -o root -g root -- "$tmp_dir/onlyoffice.gpg" "$keyring" || return 1
 
-	sudo apt-get update
-	sudo apt-get install onlyoffice-desktopeditors
+	_minx_write_apt_source /etc/apt/sources.list.d/onlyoffice.list "$source_line" || return 1
 
-	_minx_msg "Done"
-}
+	_minx_apt_install onlyoffice-desktopeditors || return 1
 
-minx_install_librewolf() {
-	minx_skip_headless "LibreWolf" && return 0
+	minx_log "Done"
+) # }}}
 
-	minx_assert_is_root
+minx_install_librewolf() ( # {{{
+	minx_skip_in_server_install "LibreWolf" && return 0
 
-	minx_header "L1" "librewolf"
+	_minx_header "librewolf"
 
-	_minx_msg "Installing ..."
+	minx_assert_is_root || return 1
 
-	sudo apt update && sudo apt install extrepo -y
-	sudo extrepo enable librewolf && sudo extrepo update librewolf
-	sudo apt update && sudo apt install librewolf -y
+	minx_log "Installing ..."
 
-	_minx_msg "Done"
-}
+	_minx_apt_install extrepo || return 1
+	extrepo enable librewolf || return 1
+	extrepo update librewolf || return 1
+	_minx_apt_install librewolf || return 1
 
-minx_install_spotify() {
-	minx_skip_headless "Spotify" && return 0
+	minx_log "Done"
+) # }}}
 
-	minx_assert_is_root
+minx_install_spotify() ( # {{{
+	local keyring="/usr/share/keyrings/spotify.gpg"
+	local source_line="deb [signed-by=$keyring] https://repository.spotify.com stable non-free"
 
-	minx_header "L1" "Spotify"
+	minx_skip_in_server_install "Spotify" && return 0
 
-	_minx_msg "Installing ..."
+	_minx_header "Spotify"
 
-	curl -sS \
-		https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc |
-		sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
+	minx_assert_is_root || return 1
 
-	_minx_add_apt_source /etc/apt/sources.list.d/spotify.list \
-		'deb https://repository.spotify.com stable non-free'
+	minx_log "Installing ..."
 
-	sudo apt-get update
-	sudo apt-get install spotify-client
+	curl -fsSL https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc |
+		gpg --dearmor --yes -o "$keyring" || return 1
 
-	_minx_msg "Done"
-}
+	chmod 0644 -- "$keyring" || return 1
+
+	# The key used to be trusted for every repository; it is now scoped to this
+	# one by signed-by.
+	rm -f -- /etc/apt/trusted.gpg.d/spotify.gpg
+
+	_minx_write_apt_source /etc/apt/sources.list.d/spotify.list "$source_line" || return 1
+
+	_minx_apt_install spotify-client || return 1
+
+	minx_log "Done"
+) # }}}
 
 minx_install_calix() ( # {{{
 	local version="${MINX_PINNED_VERSIONS[version_calix]}"
-	local release_tag="v${version}"
-	local archive_name="calix-${version}-linux-x86_64.tar.gz"
 	local archive_dir="calix-${version}-linux-x86_64"
-	local download_url="${MINX_PINNED_VERSIONS[url_calix]}/download/${release_tag}/${archive_name}"
-
-	local download_dir="$MINX_REPOS_DIR/downloads/calix"
-	local dst_file="$download_dir/$archive_name"
-	local tmp_dir
+	local archive_name="${archive_dir}.tar.gz"
+	local url="${MINX_PINNED_VERSIONS[url_calix]}/download/v${version}/${archive_name}"
+	local sha256="${MINX_PINNED_VERSIONS[sha256_calix]:-}" # optional
+	local dst_file="$MINX_DOWNLOADS_DIR/calix/$archive_name"
 	local bin_dir="$HOME/.local/bin"
+	local installed tmp_dir
 
-	minx_skip_headless "Calix" && return 0
+	minx_skip_in_server_install "Calix" && return 0
 
 	_minx_header "Install Calix $version"
 
 	# Calix installs into the user's ~/.local directory.
-	minx_assert_is_non_root "$0" || return 1
+	minx_assert_is_non_root || return 1
 
-	if [[ -x "$bin_dir/calix" ]] &&
-		"$bin_dir/calix" --version 2>/dev/null | grep -q "$version"; then
-		_minx_msg "Calix $version already installed."
-		return 0
+	if [[ -x "$bin_dir/calix" ]]; then
+		# Captured first: grep -q exiting early would trip pipefail.
+		installed="$("$bin_dir/calix" --version 2>/dev/null || true)"
+
+		if [[ "$installed" == *"$version"* ]]; then
+			minx_log "Calix $version already installed."
+			return 0
+		fi
 	fi
 
-	mkdir -p -- "$download_dir" || return 1
+	minx_download_file "$url" "$dst_file" "$sha256" || return 1
 
-	tmp_dir="$(mktemp -d)" || return 1
-	trap 'rm -rf -- "$tmp_dir"' EXIT
+	tmp_dir="$(mktemp -d -p /tmp)" || return 1
+	# shellcheck disable=SC2064 # expand now: the variable is gone at exit
+	trap "minx_safe_rm_dir ${tmp_dir@Q}" EXIT
 
-	if [[ -f "$dst_file" ]]; then
-		_minx_msg "Using existing archive: $dst_file"
-	else
-		_minx_download_or_clean "$download_url" "$dst_file" || return 1
-	fi
-
-	_minx_msg "Extracting ..."
+	minx_log "Extracting ..."
 
 	tar -xzf "$dst_file" -C "$tmp_dir" || return 1
 
-	local install_dir="$tmp_dir/$archive_dir"
+	_minx_require_exec "$tmp_dir/$archive_dir/install.sh" "Calix install.sh" || return 1
 
-	_minx_require_exec "$install_dir/install.sh" "Calix install.sh" || return 1
-
-	_minx_msg "Installing ..."
+	minx_log "Installing ..."
 
 	(
-		cd "$install_dir"
+		cd -- "$tmp_dir/$archive_dir" || exit 1
 		./install.sh
 	) || return 1
 
-	_minx_msg "Verifying installation ..."
+	minx_log "Verifying installation ..."
 
 	_minx_require_exec "$bin_dir/calix" "Calix executable" || return 1
 
 	"$bin_dir/calix" --version || return 1
 
-	_minx_msg "Done"
+	minx_log "Done"
 ) # }}}
 
+# Main
+# ----------------------------------------------------------------------
+
+# APP was validated against APPS at the top, so the function name is safe.
 main() {
-
-	# ACTION case
-	case "$ACTION" in
-	--build) ;;
-	--install) ;;
-	*)
-		_minx_msg "Invalid action: $ACTION"
-		return 1
-		;;
-	esac
-
-	# APP case
-	case "$APP" in
-
-	ctags)
-		minx_install_ctags || return 1
-		;;
-
-	dwm)
-		minx_install_dwm || return 1
-		;;
-
-	runtime)
-		minx_install_runtime || return 1
-		;;
-
-	go)
-		minx_install_go || return 1
-		;;
-
-	jetbrains_mono)
-		minx_install_jetbrains_mono || return 1
-		;;
-
-	languagetool)
-		minx_install_languagetool || return 1
-		;;
-
-	nvm_and_nodejs)
-		minx_install_nvm_and_nodejs || return 1
-		;;
-
-	pdfjs)
-		minx_install_pdfjs || return 1
-		;;
-
-	qemu)
-		minx_install_qemu || return 1
-		;;
-
-	qutebrowser)
-		minx_install_qutebrowser || return 1
-		;;
-
-	rust_and_cargo)
-		minx_install_rust_and_cargo || return 1
-		;;
-
-	sent)
-		minx_install_sent || return 1
-		;;
-
-	st)
-		minx_install_st || return 1
-		;;
-
-	slock)
-		minx_install_slock || return 1
-		;;
-
-	taskwarrior)
-		minx_install_taskwarrior || return 1
-		;;
-
-	timewarrior)
-		minx_install_timewarrior || return 1
-		;;
-
-	pipx_packages)
-		minx_install_pipx_packages || return 1
-		;;
-
-	nodejs_packages)
-		minx_install_nodejs_packages || return 1
-		;;
-
-	go_packages)
-		minx_install_go_packages || return 1
-		;;
-
-	vim)
-		minx_install_vim || return 1
-		;;
-
-	spotify)
-		minx_install_spotify || return 1
-		;;
-
-	onlyoffice)
-		minx_install_onlyoffice || return 1
-		;;
-
-	librewolf)
-		minx_install_librewolf || return 1
-		;;
-
-	calix)
-		minx_install_calix || return 1
-		;;
-
-	invariant_repos)
-		minx_install_invariant_repos || return 1
-		;;
-
-	*)
-		_minx_msg "Invalid app: $APP"
-		return 1
-		;;
-	esac
+	"minx_install_$APP"
 }
 
-minx_run_and_log "$LOGFILE" main "$@"
+minx_run_and_log "$LOGFILE" main
+exit $?

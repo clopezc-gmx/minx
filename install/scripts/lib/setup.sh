@@ -1,221 +1,213 @@
 #!/usr/bin/env bash
+#
+# minx installer library -- meant to be sourced, not executed.
+# Requires bash >= 4.3 (associative arrays, namerefs).
+#
+# Public functions:
+#   minx_backup_user_rc_files     minx_restore_user_rc_files
+#   minx_backup_root_rc_files     minx_restore_root_rc_files
+#   minx_install_mime_types       minx_get_vim_vundle
+#   minx_clone_personal_repos     minx_install_user_services
+#   minx_install_system_services  minx_init_mail
+#   minx_install_tt               minx_install_wikiviewer
+#
+# Depends on minx_utils.sh (logging, role/installation checks, symlink/move
+# maps, config variables such as MINX_USER_REPOS_DIR). Everything prefixed with
+# "_minx_" is private to this file.
 
-: "${MINX_PROFILES_DIR:?Variable does not exist}"
+if [[ -z "${MINX_INSTALL_UTILS_LOADED:-}" ]]; then
+	printf '%s\n' "=> [FAIL] minx_utils.sh must be sourced before this file" >&2
+	return 1
+fi
 
-# -----------------------------------------------------------------------------
-# minx_backup_user_rc_files
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Private helpers
+# =============================================================================
+
+_minx_rc_backup_dir() {
+	printf '%s\n' "$HOME/.backups/.rc_$(minx_get_date)"
+}
+
+# =============================================================================
+# Private helpers: git
+# =============================================================================
+
+# _minx_clone_repo <name> <dest> <remote_prefix>
+# Clones "<remote_prefix>$MINX_REMOTE_BAREREPOS_DIR/<name>.git" into <dest>.
+_minx_clone_repo() {
+	local repo="$1" dest="$2" remote="$3"
+
+	if [[ -d "$dest/.git" ]]; then
+		minx_log "$repo already exists, skipping clone."
+		return 0
+	fi
+
+	if [[ -e "$dest" ]]; then
+		minx_fail "Destination exists but is not a Git repository: $dest"
+		return 1
+	fi
+
+	minx_log "Cloning $repo..."
+
+	git clone -- "${remote}${MINX_REMOTE_BAREREPOS_DIR}/${repo}.git" "$dest" ||
+		{
+			minx_fail "Failed to clone $repo"
+			return 1
+		}
+}
+
+# =============================================================================
+# Dotfiles: user
+# =============================================================================
+
+# Relative paths (to $HOME and to the dotfiles repo) that are symlinked files.
+_minx_user_rc_files() { # out_array_name
+	local -n _out="$1"
+
+	_out=(
+		.bashrc
+		.gitconfig
+		.gitconfig-mpcdf
+		.gitconfig-personal
+		.gitignore-global
+		.inputrc
+		.profile
+		.vimrc
+	)
+
+	minx_is_desktop_install || return 0
+
+	_out+=(
+		.gnupg/gpg-agent.conf
+		.mail/.aliases
+		.mailcap
+		.mbsyncrc
+		.msmtprc
+		.notmuch-config
+		.ssh/config
+		.taskrc
+		.tmux.conf
+		.xinitrc
+		.xsetroot.sh
+	)
+}
+
+# Relative paths that are symlinked directories (same name in the dotfiles repo).
+_minx_user_rc_dirs() { # out_array_name
+	local -n _out="$1"
+
+	_out=(
+		.bashrc.d
+		.config
+		.newsboat
+		.vim
+	)
+}
 
 minx_backup_user_rc_files() { # {{{
 	minx_assert_is_non_root || return 1
 
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Same behaviour\n"
-	fi
-
-	printf '\n%s\n' "=> Backing up existing dotfiles"
+	minx_section "Backing up existing dotfiles"
 
 	mkdir -p -- "$HOME/.backups" || return 1
 
 	local backup_dir
-	backup_dir="$HOME/.backups/.rc_$(minx_get_date)"
+	backup_dir="$(_minx_rc_backup_dir)"
 
-	local -A files_map # [dst]=src
-	files_map=(
-		["$backup_dir/.bashrc"]="$HOME/.bashrc"
-		["$backup_dir/.gitconfig"]="$HOME/.gitconfig"
-		["$backup_dir/.gitconfig-mpcdf"]="$HOME/.gitconfig-mpcdf"
-		["$backup_dir/.gitconfig-personal"]="$HOME/.gitconfig-personal"
-		["$backup_dir/.gitignore-global"]="$HOME/.gitignore-global"
-		["$backup_dir/.gnupg/gpg-agent.conf"]="$HOME/.gnupg/gpg-agent.conf"
-		["$backup_dir/.mailcap"]="$HOME/.mailcap"
-		["$backup_dir/.mbsyncrc"]="$HOME/.mbsyncrc"
-		["$backup_dir/.msmtprc"]="$HOME/.msmtprc"
-		["$backup_dir/.inputrc"]="$HOME/.inputrc"
-		["$backup_dir/.notmuch-config"]="$HOME/.notmuch-config"
-		["$backup_dir/.profile"]="$HOME/.profile"
-		["$backup_dir/.ssh/config"]="$HOME/.ssh/config"
-		["$backup_dir/.taskrc"]="$HOME/.taskrc"
-		["$backup_dir/.tmux.conf"]="$HOME/.tmux.conf"
-		["$backup_dir/.vimrc"]="$HOME/.vimrc"
-		["$backup_dir/.xinitrc"]="$HOME/.xinitrc"
-		["$backup_dir/.xsetroot.sh"]="$HOME/.xsetroot.sh"
-	)
+	local -a files=() dirs=()
+	_minx_user_rc_files files
+	_minx_user_rc_dirs dirs
+	dirs+=(.local/bin/minx) # symlinked by minx_restore_user_rc_files
+
+	local -A files_map=() folder_map=() # [dst]=src
+	minx_map_paths files_map "$backup_dir" "$HOME" "${files[@]}"
+	minx_map_paths folder_map "$backup_dir" "$HOME" "${dirs[@]}"
 
 	minx_move_map files_map || return 1
-
-	local -A folder_map # [dst]=src
-	folder_map=(
-		["$backup_dir/.bashrc.d"]="$HOME/.bashrc.d"
-		["$backup_dir/.newsboat"]="$HOME/.newsboat"
-		["$backup_dir/.config"]="$HOME/.config"
-		["$backup_dir/.vim"]="$HOME/.vim"
-	)
-
 	minx_move_map folder_map || return 1
-
 } # }}}
 
-# -----------------------------------------------------------------------------
-# minx_restore_user_rc_files
-# -----------------------------------------------------------------------------
-
 minx_restore_user_rc_files() { # {{{
-
 	minx_assert_is_non_root || return 1
-
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Different behaviour\n"
-	fi
 
 	local dotfiles="$MINX_PROFILES_DIR/user/dotfiles"
 
-	local -A files_map
+	local -a files=() dirs=()
+	_minx_user_rc_files files
+	_minx_user_rc_dirs dirs
 
-	# shellcheck disable=SC2034 # passed as reference to a function
-	files_map=(
-		# [dst]=src
-		["$HOME/.bashrc"]="$dotfiles/.bashrc"
-		["$HOME/.gitconfig"]="$dotfiles/.gitconfig"
-		["$HOME/.gitconfig-mpcdf"]="$dotfiles/.gitconfig-mpcdf"
-		["$HOME/.gitconfig-personal"]="$dotfiles/.gitconfig-personal"
-		["$HOME/.gitignore-global"]="$dotfiles/.gitignore-global"
-		["$HOME/.gnupg/gpg-agent.conf"]="$dotfiles/.gnupg/gpg-agent.conf"
-		["$HOME/.inputrc"]="$dotfiles/.inputrc"
-		["$HOME/.mail/.aliases"]="$dotfiles/.mail/.aliases"
-		["$HOME/.mailcap"]="$dotfiles/.mailcap"
-		["$HOME/.mbsyncrc"]="$dotfiles/.mbsyncrc"
-		["$HOME/.msmtprc"]="$dotfiles/.msmtprc"
-		["$HOME/.notmuch-config"]="$dotfiles/.notmuch-config"
-		["$HOME/.profile"]="$dotfiles/.profile"
-		["$HOME/.ssh/config"]="$dotfiles/.ssh/config"
-		["$HOME/.taskrc"]="$dotfiles/.taskrc"
-		["$HOME/.tmux.conf"]="$dotfiles/.tmux.conf"
-		["$HOME/.vimrc"]="$dotfiles/.vimrc"
-		["$HOME/.xinitrc"]="$dotfiles/.xinitrc"
-		["$HOME/.xsetroot.sh"]="$dotfiles/.xsetroot.sh"
-	)
+	# shellcheck disable=SC2034 # maps are passed by name to the helpers below
+	local -A files_map=() folder_map=() # [dst]=src
+	minx_map_paths files_map "$HOME" "$dotfiles" "${files[@]}"
+	minx_map_paths folder_map "$HOME" "$dotfiles" "${dirs[@]}"
+	folder_map["$HOME/.local/bin/minx"]="$MINX_PROFILES_DIR/user/scripts/bin"
 
-	minx_symlink_map files_map || return 1
-
-	if [[ "$_is_server" == "yes" ]]; then
-		rm "$HOME/.ssh/config"
-		rm "$HOME/.tmux.conf"
-		rm "$HOME/.xinitrc"
-		rm "$HOME/.xsetroot.sh"
+	# Private dirs first; minx_symlink creates every other parent itself.
+	if minx_is_desktop_install; then
+		mkdir -p -m 700 -- "$HOME/.ssh" "$HOME/.gnupg" || return 1
 	fi
 
-	local -A folder_map
-	folder_map+=(
-		# [dst]=src
-		["$HOME/.bashrc.d"]="$dotfiles/.bashrc.d"
-		["$HOME/.config"]="$dotfiles/.config"
-		["$HOME/.local/bin/minx"]="$MINX_PROFILES_DIR/user/scripts/bin"
-		["$HOME/.newsboat"]="$dotfiles/.newsboat"
-		["$HOME/.vim"]="$dotfiles/.vim"
-	)
-
+	minx_symlink_map files_map || return 1
 	minx_symlink_map folder_map || return 1
 } # }}}
 
-# -----------------------------------------------------------------------------
-# minx_backup_root_rc_files
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Dotfiles: root
+# =============================================================================
 
 minx_backup_root_rc_files() { # {{{
 	minx_assert_is_root || return 1
 
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Same behaviour\n"
-	fi
-
-	printf '\n%s\n' "=> Backing up existing dotfiles"
+	minx_section "Backing up existing dotfiles"
 
 	mkdir -p -- "$HOME/.backups" || return 1
 
 	local backup_dir
-	backup_dir="$HOME/.backups/.rc_$(minx_get_date)"
+	backup_dir="$(_minx_rc_backup_dir)"
 
-	local -A files_map # [dst]=src
-	files_map=(
-		["$backup_dir/.bashrc"]="$HOME/.bashrc"
-	)
+	local -a files=(.bashrc)
+
+	local -A files_map=() # [dst]=src
+	minx_map_paths files_map "$backup_dir" "$HOME" "${files[@]}"
 
 	minx_move_map files_map || return 1
-
-	local -A folder_map # [dst]=src
-	folder_map=(
-	)
-
-	minx_move_map folder_map || return 1
 } # }}}
-
-# -----------------------------------------------------------------------------
-# minx_restore_root_rc_files
-# -----------------------------------------------------------------------------
 
 minx_restore_root_rc_files() { # {{{
-
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Same behaviour\n"
-	fi
-
 	minx_assert_is_root || return 1
 
-	local -A files_map
+	local -a files=(.bashrc)
 
-	# shellcheck disable=SC2034 # passed as reference to a function
-	files_map=(
-		# [dst]=src
-		["$HOME/.bashrc"]="$MINX_PROFILES_DIR/root/dotfiles/.bashrc"
-	)
+	# shellcheck disable=SC2034 # map is passed by name to the helper below
+	local -A files_map=() # [dst]=src
+	minx_map_paths files_map "$HOME" "$MINX_PROFILES_DIR/root/dotfiles" "${files[@]}"
 
 	minx_symlink_map files_map || return 1
-
-	local -A folder_map
-	folder_map+=(
-		# [dst]=src
-	)
-
-	minx_symlink_map folder_map || return 1
 } # }}}
 
-# -----------------------------------------------------------------------------
-# minx_install_mime_types
-# -----------------------------------------------------------------------------
+# =============================================================================
+# MIME types
+# =============================================================================
 
 minx_install_mime_types() { # {{{
+	minx_assert_is_non_root || return 1
 
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Different behaviour\n"
-		printf "\n=> [is_server=yes] --  Do nothing\n"
+	if minx_is_server_install; then
+		minx_log_server_skip "Do not install mime types, keep defaults"
 		return 0
 	fi
-
-	minx_assert_is_non_root || return 1
 
 	local desktop_dir="$HOME/.local/share/applications"
 	local mime_dir="$HOME/.local/share/mime"
 
-	mkdir -p -- "$desktop_dir" || return 1
-	mkdir -p -- "$mime_dir/packages" || return 1
+	mkdir -p -- "$desktop_dir" "$mime_dir/packages" || return 1
 
-	local -A desktop_files=()
+	local -A desktop_files=() # [dst]=src
 	local file
-	local filename
 
 	for file in "$MINX_PROFILES_DIR/user/mimetypes"/*.desktop; do
 		[[ -f "$file" ]] || continue
-
-		filename="${file##*/}"
-		desktop_files+=(
-			["$desktop_dir/$filename"]="$file"
-		)
+		desktop_files["$desktop_dir/${file##*/}"]="$file"
 	done
 
 	minx_symlink_map desktop_files || return 1
@@ -223,886 +215,429 @@ minx_install_mime_types() { # {{{
 	update-mime-database "$mime_dir" || return 1
 } # }}}
 
-# -----------------------------------------------------------------------------
-# minx_get_vim_vundle
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Vim
+# =============================================================================
 
 minx_get_vim_vundle() { # {{{
-
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Same behaviour\n"
-	fi
-
+	minx_assert_is_non_root || return 1
 	minx_path_exists "$HOME/.vim" || return 1
 
 	local vundle_dir="$HOME/.vim/bundle/Vundle.vim"
 
-	minx_path_exists "$vundle_dir" && rm -rf -- "$vundle_dir"
+	if minx_path_exists "$vundle_dir"; then
+		rm -rf -- "$vundle_dir" || return 1
+	fi
 
-	git clone https://github.com/VundleVim/Vundle.vim.git "$vundle_dir"
+	git clone -- https://github.com/VundleVim/Vundle.vim.git "$vundle_dir"
 } # }}}
 
-# -----------------------------------------------------------------------------
-# minx_clone_personal_repos
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Personal repositories
+# =============================================================================
 
 minx_clone_personal_repos() { # {{{
-
 	minx_assert_is_non_root || return 1
-
-	local _is_server="${1:-?Variable not set}"
-
-	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Different behaviour\n"
-	fi
 
 	local dst_dir="$MINX_USER_REPOS_DIR/personal"
 
-	local personal_repos=(
-		.abook
-		.password-store
+	local -a repos=(
 		family-server
 		minx-profiles
-		mytools.d/tt.d/tt-src
-		mytools.d/tt.d/tt-data.d/activities
-		mytools.d/tt.d/tt-data.d/notes
-		mytools.d/tt.d/tt-data.d/goals
 		mytools.d/wikiviewer
-		projects.d/coursera.d/cpp-in-scicomp
-		projects.d/hpc-python
 	)
+
+	# Desktops clone over ssh from the server; the server clones from its own
+	# local bare repos.
+	local remote=""
+
+	if minx_is_desktop_install; then
+		remote="$MINX_REMOTE_SSH_SERVER:"
+
+		repos+=(
+			.abook
+			.password-store
+			mytools.d/tt.d/tt-src
+			mytools.d/tt.d/tt-data.d/activities
+			mytools.d/tt.d/tt-data.d/notes
+			mytools.d/tt.d/tt-data.d/goals
+			projects.d/coursera.d/cpp-in-scicomp
+			projects.d/hpc-python
+		)
+	fi
 
 	mkdir -p -- "$dst_dir" || return 1
 
 	local repo
-	local repo_dir
-
-	local remote=""
-	if [ "$_is_server" == "no" ]; then
-		remote="$MINX_REMOTE_SSH_SERVER:"
-	fi
-
-	for repo in "${personal_repos[@]}"; do
-		repo_dir="$dst_dir/$repo"
-
-		if [[ -d "$repo_dir/.git" ]]; then
-			printf '%s\n' "=> $repo already exists, skipping clone."
-			continue
-		fi
-
-		if [[ -e "$repo_dir" ]]; then
-			printf '%s\n' "=> Error: destination exists but is not a Git repository: $repo_dir" >&2
-			return 1
-		fi
-
-		printf '%s\n' "=> Cloning $repo..."
-
-		git clone "${remote}${MINX_REMOTE_BAREREPOS_DIR}/${repo}.git" "${repo_dir}" || {
-			printf '%s\n' "=> Error: failed to clone $repo" >&2
-			return 1
-		}
+	for repo in "${repos[@]}"; do
+		_minx_clone_repo "$repo" "$dst_dir/$repo" "$remote" || return 1
 	done
 
-	repo_dir="$MINX_USER_DOCUMENTS_DIR"
-	repo=mydocuments
+	minx_is_desktop_install || return 0
 
-	if [[ -d "$repo_dir/.git" ]]; then
-		printf '%s\n' "=> $repo already exists, skipping clone."
-	elif [[ -e "$repo_dir" ]]; then
-		printf '%s\n' "=> Error: destination exists but is not a Git repository: $repo_dir" >&2
-		return 1
-	else
-		printf '%s\n' "=> Cloning $repo..."
-		git clone "${remote}${MINX_REMOTE_BAREREPOS_DIR}/${repo}.git" "$MINX_USER_DOCUMENTS_DIR" || {
-			printf '%s\n' "=> Error: failed to clone $repo" >&2
-			return 1
-		}
-	fi
+	_minx_clone_repo mydocuments "$MINX_USER_DOCUMENTS_DIR" "$remote" || return 1
 
-	local -A folder_map
-	folder_map+=(
-		# [dst]=src
+	local -A folder_map=( # [dst]=src
 		["$HOME/.abook"]="$dst_dir/.abook"
 		["$HOME/.password-store"]="$dst_dir/.password-store"
 		["$HOME/.timewarrior"]="$dst_dir/mytools.d/tt.d/tt-data.d/activities"
 	)
 
-	minx_symlink_map folder_map
+	minx_symlink_map folder_map || return 1
 } # }}}
 
-# -----------------------------------------------------------------------------
-# minx_install_user_services
-# -----------------------------------------------------------------------------
+# =============================================================================
+# User systemd services
+# =============================================================================
+
+# _minx_render_user_units <tmp_dir> <unit>...
+_minx_render_user_units() {
+	local tmp_dir="$1"
+	local unit
+	shift
+
+	minx_log "Rendering user systemd units"
+
+	for unit in "$@"; do
+		minx_render_template \
+			"$MINX_INSTALLER_SERVICES_DIR/user/$unit" "$tmp_dir/$unit" || return 1
+
+		chmod 0644 -- "$tmp_dir/$unit" ||
+			{
+				minx_fail "Failed to set permissions: $tmp_dir/$unit"
+				return 1
+			}
+
+		minx_pass "Rendered $unit"
+	done
+}
+
+# _minx_replace_user_units <tmp_dir> <dest_dir> <unit>...
+# Stops/removes any installed copy of each unit, then installs the rendered one.
+_minx_replace_user_units() {
+	local tmp_dir="$1" dest_dir="$2"
+	local unit dst
+	shift 2
+
+	minx_log "Stopping and disabling existing user units"
+
+	for unit in "$@"; do
+		systemctl --user disable --now "$unit" >/dev/null 2>&1 || true
+	done
+
+	minx_log "Removing existing user units"
+
+	for unit in "$@"; do
+		dst="$dest_dir/$unit"
+		[[ -e "$dst" || -L "$dst" ]] || continue
+
+		rm -f -- "$dst" ||
+			{
+				minx_fail "Failed to remove: $dst"
+				return 1
+			}
+
+		minx_log "- $dst"
+	done
+
+	minx_log "Installing rendered user systemd units"
+
+	for unit in "$@"; do
+		dst="$dest_dir/$unit"
+
+		install -m 0644 -- "$tmp_dir/$unit" "$dst" ||
+			{
+				minx_fail "Failed to install: $dst"
+				return 1
+			}
+
+		minx_pass "Installed $unit"
+	done
+
+	minx_log "Reloading user systemd"
+
+	systemctl --user daemon-reload ||
+		{
+			minx_fail "systemd daemon-reload failed"
+			return 1
+		}
+}
+
+# _minx_enable_user_units <unit>...
+_minx_enable_user_units() {
+	local unit
+
+	minx_log "Enabling and starting user units"
+
+	for unit in "$@"; do
+		if ! systemctl --user enable --now "$unit"; then
+			systemctl --user status "$unit" --no-pager || true
+			minx_fail "Failed to enable/start $unit"
+			return 1
+		fi
+
+		minx_pass "Enabled $unit"
+	done
+
+	minx_log "User systemd status:"
+
+	for unit in "$@"; do
+		if ! systemctl --user is-active --quiet "$unit"; then
+			systemctl --user status "$unit" --no-pager || true
+			minx_fail "$unit is not active"
+			return 1
+		fi
+
+		minx_pass "$unit is active"
+	done
+}
 
 minx_install_user_services() { # {{{
 	minx_assert_is_non_root || return 1
 
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf '%s\n' "=> [is_server=yes] -- Do nothing"
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Do not install user services (installed manually, see documentation)"
 		return 0
 	fi
 
-	#
-	# Ensure user systemd is available
-	#
-
 	if ! systemctl --user show-environment >/dev/null 2>&1; then
-		printf '%s\n' "=> Error: systemd user session is not available." >&2
+		minx_fail "systemd user session is not available"
 		return 1
 	fi
-
-	#
-	# Config
-	#
 
 	local dest_dir="$HOME/.config/systemd/user"
 
-	local -A units=(
-		["languagetool.service"]="$MINX_INSTALLER_SERVICES_DIR/user/languagetool.service"
-		["wikiviewer.service"]="$MINX_INSTALLER_SERVICES_DIR/user/wikiviewer.service"
-
-		["ssync-mail.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-mail.service"
-		["ssync-mail.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-mail.timer"
-
-		["ssync-calendar.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-calendar.service"
-		["ssync-calendar.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-calendar.timer"
-
-		["ssync-passwords.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-passwords.service"
-		["ssync-passwords.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-passwords.timer"
-
-		["ssync-taskwarrior.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-taskwarrior.service"
-		["ssync-taskwarrior.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-taskwarrior.timer"
-
-		["ssync-assets.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-assets.service"
-		["ssync-assets.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-assets.timer"
-
-		["ssync-documents.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-documents.service"
-		["ssync-documents.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-documents.timer"
-
-		["ssync-ta.service"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-ta.service"
-		["ssync-ta.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/ssync-ta.timer"
-
-		["update_feeds.service"]="$MINX_INSTALLER_SERVICES_DIR/user/update_feeds.service"
-		["update_feeds.timer"]="$MINX_INSTALLER_SERVICES_DIR/user/update_feeds.timer"
-	)
-
-	#
-	# Units to enable/start
-	#
-
-	local -a enabled_units=(
+	# Standalone services (enabled directly).
+	local -a services=(
 		languagetool.service
 		wikiviewer.service
-
-		ssync-mail.timer
-		ssync-calendar.timer
-		ssync-passwords.timer
-		ssync-taskwarrior.timer
-		ssync-assets.timer
-		ssync-documents.timer
-		ssync-ta.timer
-		update_feeds.timer
 	)
 
-	#
-	# Ensure destination exists
-	#
+	# Service + timer pairs (the timer is what gets enabled).
+	local -a timed_jobs=(
+		ssync-mail
+		ssync-calendar
+		ssync-passwords
+		ssync-taskwarrior
+		ssync-assets
+		ssync-documents
+		ssync-ta
+		update_feeds
+	)
 
-	mkdir -p -- "$dest_dir" || {
-		printf '%s\n' "=> [FAIL] Failed to create: $dest_dir" >&2
-		return 1
-	}
+	local -a units=("${services[@]}")
+	local -a enabled_units=("${services[@]}")
+	local job
 
-	#
-	# Prepare temporary installation directory
-	#
+	for job in "${timed_jobs[@]}"; do
+		units+=("$job.service" "$job.timer")
+		enabled_units+=("$job.timer")
+	done
 
-	local tmp_dir
-
-	tmp_dir="$(mktemp -d -- "$dest_dir/.minx-services.XXXXXX")" || {
-		printf '%s\n' "=> [FAIL] Cannot create temporary directory" >&2
-		return 1
-	}
-
-	#
-	# Render service templates
-	#
-
-	printf '%s\n' "=> Rendering user systemd units"
-
-	local unit
-	local src
-	local dst
-	local name
-	local ref
-	local legacy
-	local escaped
-
-	local -a profile_vars=()
-	local -a sed_args=()
-
-	for unit in "${!units[@]}"; do
-		src="${units[$unit]}"
-		dst="$tmp_dir/$unit"
-
-		if [[ ! -r "$src" ]]; then
-			printf '%s\n' "=> [FAIL] Cannot read unit template: $src" >&2
-			rm -rf -- "$tmp_dir"
-			return 1
-		fi
-
-		#
-		# Find MINX_* placeholders
-		#
-
-		mapfile -t profile_vars < <(
-			grep -o '@@MINX_[A-Z0-9_]*@@' "$src" |
-				sort -u |
-				sed -e 's/^@@MINX_//' -e 's/@@$//'
-		)
-
-		sed_args=()
-
-		#
-		# Build sed expressions
-		#
-
-		for name in "${profile_vars[@]}"; do
-			ref="MINX_$name"
-			legacy="MXC_$name"
-
-			# Fall back to MXC_* if MINX_* is unset or empty.
-			if [[ -z "${!ref:-}" && -n "${!legacy:-}" ]]; then
-				printf -v "$ref" '%s' "${!legacy}"
-			fi
-
-			if [[ -z "${!ref:-}" ]]; then
-				printf '%s\n' \
-					"=> [FAIL] $ref (or $legacy) is not set or empty" >&2
-				rm -rf -- "$tmp_dir"
-				return 1
-			fi
-
-			# Escape sed replacement characters.
-			escaped=$(printf '%s' "${!ref}" | sed 's/[\\&|]/\\&/g') || {
-				rm -rf -- "$tmp_dir"
-				return 1
-			}
-
-			sed_args+=(-e "s|@@MINX_${name}@@|${escaped}|g")
-		done
-
-		#
-		# Render or copy template
-		#
-
-		if ((${#sed_args[@]} > 0)); then
-			if ! sed "${sed_args[@]}" "$src" >"$dst"; then
-				printf '%s\n' "=> [FAIL] Failed to render: $src" >&2
-				rm -rf -- "$tmp_dir"
-				return 1
-			fi
-		else
-			printf '%s\n' "=> No placeholders in $unit"
-
-			if ! cp -- "$src" "$dst"; then
-				printf '%s\n' "=> [FAIL] Failed to copy: $src" >&2
-				rm -rf -- "$tmp_dir"
-				return 1
-			fi
-		fi
-
-		#
-		# Check unresolved placeholders
-		#
-
-		if grep -q '@@[A-Z0-9_]*@@' "$dst"; then
-			printf '%s\n' "=> [FAIL] Unresolved placeholder in: $src" >&2
-			rm -rf -- "$tmp_dir"
-			return 1
-		fi
-
-		chmod 0644 -- "$dst" || {
-			printf '%s\n' "=> [FAIL] Failed to set permissions: $dst" >&2
-			rm -rf -- "$tmp_dir"
+	mkdir -p -- "$dest_dir" ||
+		{
+			minx_fail "Failed to create: $dest_dir"
 			return 1
 		}
 
-		printf '%s\n' "=> [PASS] Rendered $unit"
-	done
-
-	#
-	# Stop and disable existing units
-	#
-
-	printf '%s\n' "=> Stopping and disabling existing user units"
-
-	for unit in "${!units[@]}"; do
-		systemctl --user disable --now "$unit" >/dev/null 2>&1 || true
-	done
-
-	#
-	# Uninstall existing units
-	#
-
-	printf '%s\n' "=> Removing existing user units"
-
-	for unit in "${!units[@]}"; do
-		dst="$dest_dir/$unit"
-
-		if [[ -e "$dst" ]]; then
-			rm -f -- "$dst" || {
-				printf '%s\n' "=> [FAIL] Failed to remove: $dst" >&2
-				rm -rf -- "$tmp_dir"
-				return 1
-			}
-
-			printf '%s\n' "=> - $dst"
-		fi
-	done
-
-	#
-	# Reload systemd after removal
-	#
-
-	systemctl --user daemon-reload || {
-		printf '%s\n' "=> [FAIL] systemd daemon-reload failed" >&2
-		rm -rf -- "$tmp_dir"
-		return 1
-	}
-
-	#
-	# Install rendered units
-	#
-
-	printf '%s\n' "=> Installing rendered user systemd units"
-
-	for unit in "${!units[@]}"; do
-		src="$tmp_dir/$unit"
-		dst="$dest_dir/$unit"
-
-		install -m 0644 -- "$src" "$dst" || {
-			printf '%s\n' "=> [FAIL] Failed to install: $dst" >&2
-			rm -rf -- "$tmp_dir"
+	local tmp_dir rc
+	tmp_dir="$(mktemp -d -p /tmp)" ||
+		{
+			minx_fail "Cannot create temporary directory"
 			return 1
 		}
 
-		printf '%s\n' "=> [PASS] Installed $unit"
-	done
+	_minx_render_user_units "$tmp_dir" "${units[@]}" &&
+		_minx_replace_user_units "$tmp_dir" "$dest_dir" "${units[@]}"
+	rc=$?
 
-	rm -rf -- "$tmp_dir"
+	minx_safe_rm_dir "$tmp_dir"
+	((rc == 0)) || return 1
 
-	#
-	# Reload user systemd
-	#
+	_minx_enable_user_units "${enabled_units[@]}" || return 1
 
-	printf '%s\n' "=> Reloading user systemd"
-
-	systemctl --user daemon-reload || {
-		printf '%s\n' "=> [FAIL] systemd daemon-reload failed" >&2
-		return 1
-	}
-
-	#
-	# Enable and start units
-	#
-
-	printf '%s\n' "=> Enabling and starting user units"
-
-	for unit in "${enabled_units[@]}"; do
-		if ! systemctl --user enable --now "$unit"; then
-			printf '%s\n' "=> [FAIL] Failed to enable/start $unit" >&2
-			systemctl --user status "$unit" --no-pager || true
-			return 1
-		fi
-
-		printf '%s\n' "=> [PASS] Enabled $unit"
-	done
-
-	#
-	# Status check
-	#
-
-	printf '%s\n' "=> User systemd status:"
-
-	for unit in "${enabled_units[@]}"; do
-		if systemctl --user is-active --quiet "$unit"; then
-			printf '%s\n' "=> [PASS] $unit is active"
-		else
-			printf '%s\n' "=> [FAIL] $unit is not active" >&2
-			systemctl --user status "$unit" --no-pager || true
-			return 1
-		fi
-	done
-
-	printf '%s\n' "=> User services successfully installed"
-
+	minx_log "User services successfully installed"
 } # }}}
 
-# -----------------------------------------------------------------------------
-# minx_init_mail
-# -----------------------------------------------------------------------------
+# =============================================================================
+# System systemd services
+# =============================================================================
 
-minx_init_mail() { # {{{
+# _minx_verify_link <link> <expected_target>
+_minx_verify_link() {
+	local link="$1" expected="$2"
 
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf "\n=> [is_server=yes] --  Same behaviour\n"
+	if [[ -L "$link" && -e "$link" && "$(readlink -- "$link")" == "$expected" ]]; then
+		minx_pass "$link -> $expected"
+	else
+		minx_fail "Invalid dependency link: $link"
 	fi
-
-	minx_assert_is_non_root || return 1
-
-	local _is_server="${1:-?Variable not set}"
-	echo "$_is_server" >/dev/null
-
-	local mail_tmp_dir="/tmp/neomutt-$UID"
-	local account
-
-	__setup_account() {
-		local account="$1"
-
-		printf '%s\n' "=> Setting up $account"
-		printf '%s\n' "=> - Create dirs"
-
-		mkdir -p \
-			"$HOME/.mail/$account" \
-			"$mail_tmp_dir/$account" || return 1
-
-		printf '%s\n' "=> - mbsync $account"
-
-		time mbsync "$account" || return 1
-	}
-
-	local accounts=(
-		gmx
-		gmail
-	)
-
-	for account in "${accounts[@]}"; do
-		__setup_account "$account" || return 1
-	done
-
-	notmuch new || return 1
-} # }}}
-
-# -----------------------------------------------------------------------------
-# helpers
-# -----------------------------------------------------------------------------
-
-_get_target_info() { # {{{
-	local -n user="$1"
-	local -n home="$2"
-
-	user="$(logname 2>/dev/null || true)"
-
-	if [[ -z "$user" || "$user" == "root" ]]; then
-		printf '%s\n' \
-			"=> [FAIL] Could not determine target user" >&2
-		return 1
-	fi
-
-	if ! id "$user" >/dev/null 2>&1; then
-		printf '%s\n' \
-			"=> [FAIL] Target user does not exist: $user" >&2
-		return 1
-	fi
-
-	printf '%s\n' "=> Target user: $user"
-
-	home="$(getent passwd "$user" | cut -d: -f6)" || {
-		printf '%s\n' \
-			"=> [FAIL] Could not determine home for: $user" >&2
-		return 1
-	}
-
-	if [[ -z "$home" ]]; then
-		printf '%s\n' \
-			"=> [FAIL] Target home is empty" >&2
-		return 1
-	fi
-
-	printf '%s\n' "=> Target home: $home"
-} # }}}
-
-# -----------------------------------------------------------------------------
-# minx_install_system_services
-# -----------------------------------------------------------------------------
+}
 
 minx_install_system_services() { # {{{
 	minx_assert_is_root || return 1
 
-	local _is_server="${1:-?Variable not set}"
-	if [[ "$_is_server" == "yes" ]]; then
-		printf '%s\n' "=> [is_server=yes] -- Different behaviour"
-		printf '%s\n' "=> [is_server=yes] -- Do nothing"
+	if minx_is_server_install; then
+		minx_log_server_skip "Do not install system services (installed manually, see documentation)"
 		return 0
 	fi
 
 	local target_user target_home
-	_get_target_info target_user target_home || return 1
+	minx_get_target_info target_user target_home || return 1
 
 	local service_src="$MINX_INSTALLER_SERVICES_DIR/system/shutdown-pre@.service"
 	local service_dst="/etc/systemd/system/shutdown-pre@.service"
 	local dispatcher_src="$MINX_INSTALLER_SERVICES_DIR/system/sleep_dispatch.sh"
 	local dispatcher_dst="/lib/systemd/system-sleep/sleep_dispatch.sh"
 
-	local -a service_instances=(
-		shutdown-pre@reboot.service
-		shutdown-pre@poweroff.service
-		shutdown-pre@halt.service
-	)
+	# Each action X maps: X.target -> wants -> shutdown-pre@X.service
+	local -a actions=(reboot poweroff halt)
 
-	local -a targets=(
-		reboot.target
-		poweroff.target
-		halt.target
-	)
-
-	local target service_instance expected_instance
-	local wants_dir link
-	local i failed=0
+	local action other instance link wants_dir
+	local load_state fragment exec_start
+	local failed=0
 
 	#
-	# Internal Function Helpers
+	# Prepare directories
 	#
 
-	_minx_diag() {
-		printf '[DIAG] %s\n' "$*"
-	}
+	minx_log "Installing system services for: $target_user"
 
-	_minx_fail() {
-		printf '[FAIL] %s\n' "$*" >&2
-		failed=1
-	}
+	local -a dirs=(/etc/systemd/system /lib/systemd/system-sleep)
+	for action in "${actions[@]}"; do
+		dirs+=("/etc/systemd/system/${action}.target.wants")
+	done
 
-	#
-	# Render and install template
-	#
-
-	_minx_install_template() {
-		local source=$1 destination=$2 mode=$3
-		local tmp
-		local name ref legacy escaped
-		local escaped_user escaped_home
-
-		local -a profile_vars=()
-		local -a sed_args=()
-
-		if [[ ! -r "$source" ]]; then
-			_minx_fail "Cannot read source file: $source"
-			return 1
-		fi
-
-		#
-		# Find MINX_* placeholders
-		#
-		# Supports:
-		#   @@MINX_NAME@@
-		#   @MINX_NAME@@
-		#
-
-		mapfile -t profile_vars < <(
-			grep -oE '@@MINX_[A-Z0-9_]*@@|@MINX_[A-Z0-9_]*@@' "$source" |
-				sed -E 's/^@+MINX_//; s/@+$//' |
-				sort -u
-		)
-
-		#
-		# Build sed expressions
-		#
-
-		for name in "${profile_vars[@]}"; do
-			ref="MINX_$name"
-			legacy="MXC_$name"
-
-			# Fall back to MXC_* if MINX_* is unset or empty.
-			if [[ -z "${!ref:-}" && -n "${!legacy:-}" ]]; then
-				printf -v "$ref" '%s' "${!legacy}"
-			fi
-
-			if [[ -z "${!ref:-}" ]]; then
-				_minx_fail "$ref (or $legacy) is not set or empty"
-				return 1
-			fi
-
-			# Escape sed replacement characters.
-			escaped=$(printf '%s' "${!ref}" |
-				sed 's/[\\&|]/\\&/g') || {
-				_minx_fail "Failed to escape $ref"
-				return 1
-			}
-
-			sed_args+=(
-				-e "s|@@MINX_${name}@@|${escaped}|g"
-				-e "s|@MINX_${name}@@|${escaped}|g"
-			)
-		done
-
-		#
-		# Legacy placeholders
-		#
-
-		if grep -qE '@TARGET_USER@|@TARGET_HOME@' "$source"; then
-			escaped_user=$(printf '%s' "$target_user" |
-				sed 's/[\\&|]/\\&/g') || {
-				_minx_fail "Failed to escape target user"
-				return 1
-			}
-
-			escaped_home=$(printf '%s' "$target_home" |
-				sed 's/[\\&|]/\\&/g') || {
-				_minx_fail "Failed to escape target home"
-				return 1
-			}
-
-			sed_args+=(
-				-e "s|@TARGET_USER@|${escaped_user}|g"
-				-e "s|@TARGET_HOME@|${escaped_home}|g"
-			)
-		fi
-
-		#
-		# Prepare temporary destination
-		#
-
-		tmp="$(mktemp "${destination}.XXXXXX")" || {
-			_minx_fail "mktemp failed for: $destination"
+	install -d -m 0755 -- "${dirs[@]}" ||
+		{
+			minx_fail "Failed to prepare system directories"
 			return 1
 		}
 
-		#
-		# Render or copy template
-		#
-
-		if ((${#sed_args[@]} > 0)); then
-			if ! sed "${sed_args[@]}" "$source" >"$tmp"; then
-				rm -f -- "$tmp"
-				_minx_fail "Failed to generate: $destination"
-				return 1
-			fi
-		else
-			if ! cp -- "$source" "$tmp"; then
-				rm -f -- "$tmp"
-				_minx_fail "Failed to copy: $source"
-				return 1
-			fi
-		fi
-
-		#
-		# Check unresolved placeholders
-		#
-
-		if grep -qE '@+MINX_[A-Z0-9_]*@@|@@[A-Z0-9_]*@@|@TARGET_(USER|HOME)@' "$tmp"; then
-			rm -f -- "$tmp"
-			_minx_fail "Unresolved placeholders in: $destination"
-			return 1
-		fi
-
-		#
-		# Install generated file
-		#
-
-		if ! chown root:root "$tmp" ||
-			! chmod "$mode" "$tmp" ||
-			! mv -f -- "$tmp" "$destination"; then
-			rm -f -- "$tmp"
-			_minx_fail "Failed to install: $destination"
-			return 1
-		fi
-
-		_minx_diag "Installed: $destination"
-		ls -l -- "$destination" || return 1
-	}
-
 	#
-	# Validate and prepare
+	# Render and install files
 	#
 
-	printf '=> Installing system services for: %s\n' "$target_user"
+	minx_section "Rendering system service templates"
 
-	_minx_diag "Target home: $target_home"
-
-	if ! install -d -m 0755 \
-		/etc/systemd/system \
-		/lib/systemd/system-sleep \
-		/etc/systemd/system/reboot.target.wants \
-		/etc/systemd/system/poweroff.target.wants \
-		/etc/systemd/system/halt.target.wants; then
-		_minx_fail "Failed to prepare system directories"
-		return 1
-	fi
+	minx_install_rendered_file \
+		"$service_src" "$service_dst" 0644 "$target_user" "$target_home" || return 1
+	minx_install_rendered_file \
+		"$dispatcher_src" "$dispatcher_dst" 0755 "$target_user" "$target_home" || return 1
 
 	#
-	# Install generated files
+	# Rebuild target dependency links (remove stale ones, create exact ones)
 	#
 
-	printf '\n%s\n' "=> Rendering system service templates"
+	minx_section "Configuring shutdown target dependencies"
 
-	_minx_install_template "$service_src" "$service_dst" 0644 || return 1
-	_minx_install_template "$dispatcher_src" "$dispatcher_dst" 0755 || return 1
+	for action in "${actions[@]}"; do
+		for other in "${actions[@]}"; do
+			link="/etc/systemd/system/${action}.target.wants/shutdown-pre@${other}.service"
+			[[ -e "$link" || -L "$link" ]] || continue
 
-	#
-	# Rebuild exact target-to-instance mappings
-	#
-
-	printf '\n%s\n' "=> Configuring shutdown target dependencies"
-
-	for i in "${!targets[@]}"; do
-		target=${targets[$i]}
-		wants_dir="/etc/systemd/system/${target}.wants"
-
-		for service_instance in "${service_instances[@]}"; do
-			link="${wants_dir}/${service_instance}"
-
-			if [[ -e "$link" || -L "$link" ]]; then
-				_minx_diag "Removing old link: $link"
-
-				if ! rm -f -- "$link"; then
-					_minx_fail "Failed to remove: $link"
-				fi
-			fi
+			minx_diag "Removing old link: $link"
+			rm -f -- "$link" ||
+				{
+					minx_fail "Failed to remove: $link"
+					failed=1
+				}
 		done
 	done
 
 	((failed == 0)) || return 1
 
-	for i in "${!targets[@]}"; do
-		target=${targets[$i]}
-		service_instance=${service_instances[$i]}
-		link="/etc/systemd/system/${target}.wants/${service_instance}"
+	for action in "${actions[@]}"; do
+		link="/etc/systemd/system/${action}.target.wants/shutdown-pre@${action}.service"
 
-		if ! ln -s "$service_dst" "$link"; then
-			_minx_fail "Failed to create link: $link"
-			continue
-		fi
-
-		if [[ ! -L "$link" || ! -e "$link" ]] ||
-			[[ "$(readlink -- "$link")" != "$service_dst" ]]; then
-			_minx_fail "Invalid dependency link: $link"
-			continue
-		fi
-
-		printf '[PASS] %s -> %s\n' "$link" "$service_dst"
+		minx_symlink "$service_dst" "$link" || failed=1
 	done
 
 	((failed == 0)) || return 1
 
 	#
-	# Reload systemd
+	# Reload and verify
 	#
 
-	printf '\n%s\n' "=> Reloading systemd"
+	minx_section "Reloading systemd"
 
-	if ! systemctl daemon-reload; then
-		_minx_fail "systemd daemon-reload failed"
-		return 1
-	fi
+	systemctl daemon-reload ||
+		{
+			minx_fail "systemd daemon-reload failed"
+			return 1
+		}
 
-	#
-	# Verify service template
-	#
+	minx_section "Verifying service template"
 
-	printf '\n%s\n' "=> Verifying service template"
+	systemd-analyze verify "$service_dst" ||
+		{
+			minx_fail "systemd verification failed"
+			return 1
+		}
 
-	if ! systemd-analyze verify "$service_dst"; then
-		_minx_fail "systemd verification failed"
-		return 1
-	fi
+	for action in "${actions[@]}"; do
+		instance="shutdown-pre@${action}.service"
+		minx_section "Verifying $instance"
 
-	#
-	# Verify service instances
-	#
+		load_state="$(systemctl show "$instance" -p LoadState --value)"
+		fragment="$(systemctl show "$instance" -p FragmentPath --value)"
+		exec_start="$(systemctl show "$instance" -p ExecStart --value)"
 
-	for service_instance in "${service_instances[@]}"; do
-		printf '\n%s\n' "=> Verifying $service_instance"
-
-		if ! systemctl show "$service_instance" \
-			-p LoadState \
-			-p UnitFileState \
-			-p ActiveState \
-			-p SubState \
-			-p FragmentPath \
-			-p ExecStart \
-			-p User \
-			-p Group \
-			-p Before \
-			-p After \
-			-p Conflicts \
-			-p Requires \
-			-p Wants \
-			-p WantedBy; then
-			_minx_fail "Unable to inspect: $service_instance"
-			continue
+		if [[ "$load_state" != loaded ]]; then
+			minx_fail "$instance is not loaded"
+			failed=1
 		fi
 
-		if [[ "$(systemctl show "$service_instance" -p LoadState --value)" != loaded ]]; then
-			_minx_fail "$service_instance is not loaded"
-		fi
-
-		if [[ "$(systemctl show "$service_instance" -p FragmentPath --value)" != "$service_dst" ]]; then
-			_minx_fail "$service_instance uses an unexpected unit file"
+		if [[ "$fragment" != "$service_dst" ]]; then
+			minx_fail "$instance uses an unexpected unit file"
+			failed=1
 		fi
 
 		# An empty or unresolved executable is never acceptable.
-		local exec_start
-		exec_start=$(systemctl show "$service_instance" -p ExecStart --value) || {
-			_minx_fail "Unable to inspect ExecStart: $service_instance"
-			continue
-		}
-
 		if [[ -z "$exec_start" || "$exec_start" == *'@MINX_'* || "$exec_start" == *'@@'* ]]; then
-			_minx_fail "Invalid or unresolved ExecStart: $service_instance"
+			minx_fail "Invalid or unresolved ExecStart: $instance"
+			failed=1
 		fi
 
-		systemctl cat "$service_instance" || {
-			_minx_fail "Unable to display: $service_instance"
-		}
+		systemctl cat "$instance" ||
+			{
+				minx_fail "Unable to display: $instance"
+				failed=1
+			}
 	done
 
-	#
-	# Verify exact target mappings and report dependencies
-	#
+	minx_section "Checking target dependency mappings"
 
-	printf '\n%s\n' "=> Checking target dependency mappings"
+	for action in "${actions[@]}"; do
+		wants_dir="/etc/systemd/system/${action}.target.wants"
 
-	for i in "${!targets[@]}"; do
-		target=${targets[$i]}
-		expected_instance=${service_instances[$i]}
-		wants_dir="/etc/systemd/system/${target}.wants"
+		_minx_verify_link \
+			"$wants_dir/shutdown-pre@${action}.service" "$service_dst" || failed=1
 
-		link="${wants_dir}/${expected_instance}"
+		for other in "${actions[@]}"; do
+			[[ "$other" == "$action" ]] && continue
 
-		if [[ ! -L "$link" || ! -e "$link" ]] ||
-			[[ "$(readlink -- "$link")" != "$service_dst" ]]; then
-			_minx_fail "Invalid expected dependency link: $link"
-		else
-			printf '[PASS] %s -> %s\n' "$link" "$service_dst"
-		fi
-
-		for service_instance in "${service_instances[@]}"; do
-			[[ "$service_instance" == "$expected_instance" ]] && continue
-
-			if [[ -e "${wants_dir}/${service_instance}" ||
-				-L "${wants_dir}/${service_instance}" ]]; then
-				_minx_fail "Unexpected cross-target link: ${wants_dir}/${service_instance}"
+			if [[ -e "$wants_dir/shutdown-pre@${other}.service" ||
+				-L "$wants_dir/shutdown-pre@${other}.service" ]]; then
+				minx_fail "Unexpected cross-target link: $wants_dir/shutdown-pre@${other}.service"
+				failed=1
 			fi
 		done
 
-		systemctl list-dependencies "$target" --all --no-pager || true
+		systemctl list-dependencies "${action}.target" --all --no-pager || true
 	done
 
 	#
 	# Final diagnostics
 	#
 
-	printf '\n%s\n' "=> Effective service properties"
+	minx_section "Effective service properties"
 
-	for service_instance in "${service_instances[@]}"; do
-		printf '\n[%s]\n' "$service_instance"
+	for action in "${actions[@]}"; do
+		instance="shutdown-pre@${action}.service"
+		printf '\n[%s]\n' "$instance"
 
-		systemctl show "$service_instance" \
+		systemctl show "$instance" \
 			-p LoadState \
 			-p UnitFileState \
 			-p ActiveState \
@@ -1112,38 +647,88 @@ minx_install_system_services() { # {{{
 			-p Conflicts \
 			-p WantedBy || true
 
-		systemctl list-dependencies \
-			--reverse "$service_instance" --all --no-pager || true
+		systemctl list-dependencies --reverse "$instance" --all --no-pager || true
 	done
 
-	printf '\n%s\n' "=> Final service status"
+	minx_section "Final service status"
 
-	for service_instance in "${service_instances[@]}"; do
-		systemctl status "$service_instance" --no-pager || true
+	for action in "${actions[@]}"; do
+		systemctl status "shutdown-pre@${action}.service" --no-pager || true
 	done
-
-	#
-	# Final result
-	#
 
 	if ((failed != 0)); then
-		printf '\n%s\n' "[FAIL] Installation completed with diagnostic failures" >&2
+		printf '\n' >&2
+		minx_fail "Installation completed with diagnostic failures"
 		return 1
 	fi
 
-	printf '\n%s\n' "=> [PASS] System services installed and diagnostics completed"
-	return 0
-
+	minx_section "[PASS] System services installed and diagnostics completed"
 } # }}}
 
-minx_install_tt() { #{{{
-	minx_assert_is_non_root || return 1
-	cd "$MINX_USER_REPOS_DIR/personal/mytools.d/tt.d/tt-src" || return 1
-	./install.sh "$@" --force
-} #}}}
+# =============================================================================
+# Mail
+# =============================================================================
 
-minx_install_wikiviewer() { #{{{
+# _minx_setup_mail_account <account> <tmp_dir>
+_minx_setup_mail_account() {
+	local account="$1" tmp_dir="$2"
+
+	minx_log "Setting up $account"
+	minx_log "- Create dirs"
+
+	mkdir -p -- "$HOME/.mail/$account" "$tmp_dir/$account" || return 1
+
+	minx_log "- mbsync $account"
+
+	time mbsync "$account"
+}
+
+minx_init_mail() { # {{{
 	minx_assert_is_non_root || return 1
-	cd "$MINX_USER_REPOS_DIR/personal/mytools.d/wikiviewer" || return 1
-	./install.sh --force
-} #}}}
+
+	if minx_is_server_install; then
+		minx_log_server_skip "Do not install email client"
+		return 0
+	fi
+
+	local mail_tmp_dir="/tmp/neomutt-$UID"
+	local -a accounts=(gmx gmail)
+	local account
+
+	mkdir -p -m 700 -- "$mail_tmp_dir" || return 1
+
+	for account in "${accounts[@]}"; do
+		_minx_setup_mail_account "$account" "$mail_tmp_dir" || return 1
+	done
+
+	notmuch new || return 1
+} # }}}
+
+# =============================================================================
+# Tools
+# =============================================================================
+
+# Both installers run in a subshell so the caller's working directory is kept.
+
+minx_install_tt() { # {{{
+	minx_assert_is_non_root || return 1
+
+	if minx_is_server_install; then
+		minx_log_server_skip "Do not install tt in server"
+		return 0
+	fi
+
+	(
+		cd "$MINX_USER_REPOS_DIR/personal/mytools.d/tt.d/tt-src" || exit 1
+		./install.sh "$@" --force
+	)
+} # }}}
+
+minx_install_wikiviewer() { # {{{
+	minx_assert_is_non_root || return 1
+
+	(
+		cd "$MINX_USER_REPOS_DIR/personal/mytools.d/wikiviewer" || exit 1
+		./install.sh --force
+	)
+} # }}}

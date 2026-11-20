@@ -6,9 +6,10 @@
 #
 # Run the options you need, in this order (each is safe to re-run):
 #   --run-update --initial-setup --install-firmware
-#   --install-base                                                   (server: stop here)
-#   --install-dev --install-desktop --install-radio --install-power
-#   --install-latex                                                  (optional, large)
+#   --install-base
+#   --install-dev
+#   --install-desktop --install-radio --install-power (server: stop here)
+#   --install-latex                                   (optional, large)
 #
 # Each action runs in a child bash (MINX_CHILD=1) so `set -e` really works:
 # bash disables errexit inside anything called from `if` / `||`, which is how
@@ -200,18 +201,18 @@ _install_packages() {
 # run update
 # ----------------------------------------------------------------------
 
-_run_update() {
+_run_update() { # {{{
 	_apt_update_once
 	_run apt-get autoclean
 	_run apt-get -y full-upgrade
 	_run apt-get -y autoremove
-}
+} # }}}
 
 # ----------------------------------------------------------------------
 # Initial setup
 # ----------------------------------------------------------------------
 
-_initial_setup() {
+_initial_setup() { #{{{
 
 	__configure_keyboard() {
 		_install_packages console-setup keyboard-configuration
@@ -297,13 +298,13 @@ blacklist pcspkr
 blacklist snd_pcsp
 EOF
 	fi
-}
+} #}}}
 
 # ----------------------------------------------------------------------
 # Firmware and CPU microcode
 # ----------------------------------------------------------------------
 
-_install_firmware() {
+_install_firmware() { #{{{
 	local firmware_common=(
 		firmware-misc-nonfree
 		firmware-linux-nonfree
@@ -327,13 +328,13 @@ _install_firmware() {
 	fi
 
 	_install_packages "${firmware_common[@]}" "${vendor_packages[@]}"
-}
+} #}}}
 
 # ----------------------------------------------------------------------
 # Group: base (CLI system, no X11)
 # ----------------------------------------------------------------------
 
-_install_base() {
+_install_base() { #{{{
 	local system=(
 		polkitd
 		libpam-systemd
@@ -397,13 +398,13 @@ _install_base() {
 		"${docs_and_files[@]}" \
 		"${mail_and_web[@]}" \
 		"${secrets[@]}"
-}
+} # }}}
 
 # ----------------------------------------------------------------------
 # Group: dev (toolchains, languages, libraries, scientific computing)
 # ----------------------------------------------------------------------
 
-_install_dev() {
+_install_dev() { #{{{
 	local toolchain=(
 		build-essential
 		automake
@@ -465,13 +466,13 @@ _install_dev() {
 		"${python[@]}" \
 		"${libraries[@]}" \
 		"${scientific[@]}"
-}
+} #}}}
 
 # ----------------------------------------------------------------------
 # GPU (detected via lspci; part of the desktop group)
 # ----------------------------------------------------------------------
 
-_install_gpu() {
+_install_gpu() { #{{{
 	# Generic Mesa stack for every GPU (OpenGL, Vulkan).
 	_install_packages \
 		pciutils \
@@ -508,13 +509,16 @@ _install_gpu() {
 		# installing it unattended can leave you without X. Nouveau works by default.
 		_warn "NVIDIA GPU detected: using nouveau. For the proprietary driver install 'nvidia-driver' manually."
 	fi
-}
+} #}}}
 
 # ----------------------------------------------------------------------
 # Group: desktop (X11, GPU, audio/video, apps, printing, removable media)
 # ----------------------------------------------------------------------
 
-_install_desktop() {
+_install_desktop() { # {{{
+
+	minx_assert_is_desktop_install || return 1
+
 	# No xserver-xorg-video-all: the modesetting driver is the X11 default.
 	local x11=(
 		xorg
@@ -662,13 +666,16 @@ _install_desktop() {
 	# video: brightnessctl, input: libinput debug-events,
 	# lpadmin/scanner: printing and scanning.
 	_add_user_to_groups video input lpadmin scanner
-}
+} #}}}
 
 # ----------------------------------------------------------------------
 # Group: radio (network + bluetooth)
 # ----------------------------------------------------------------------
 
-_install_radio() {
+_install_radio() { #{{{
+
+	minx_assert_is_desktop_install || return 1
+
 	_install_packages \
 		network-manager \
 		blueman \
@@ -722,13 +729,16 @@ _install_radio() {
 	fi
 
 	printf '################################################################################\n'
-}
+} # }}}
 
 # ----------------------------------------------------------------------
 # Group: power (laptops only)
 # ----------------------------------------------------------------------
 
-_install_power() {
+_install_power() { # {{{
+
+	minx_assert_is_desktop_install || return 1
+
 	if [[ "$(minx_load_info device_type)" != "portable" ]]; then
 		printf '=> Skipping power packages: device is not portable.\n'
 		return 0
@@ -736,15 +746,15 @@ _install_power() {
 
 	_install_packages tlp tlp-rdw
 	_run systemctl enable --now tlp
-}
+} # }}}
 
 # ----------------------------------------------------------------------
 # Group: latex
 # ----------------------------------------------------------------------
 
-_install_latex() {
+_install_latex() { # {{{
 	_install_packages texlive-full
-}
+} # }}}
 
 # ----------------------------------------------------------------------
 # Main
