@@ -117,7 +117,6 @@ minx_backup_user_rc_files() { # {{{
 	local -a files=() dirs=()
 	_minx_user_rc_files files
 	_minx_user_rc_dirs dirs
-	dirs+=(.local/bin/minx) # symlinked by minx_restore_user_rc_files
 
 	local -A files_map=() folder_map=() # [dst]=src
 	minx_map_paths files_map "$backup_dir" "$HOME" "${files[@]}"
@@ -140,7 +139,6 @@ minx_restore_user_rc_files() { # {{{
 	local -A files_map=() folder_map=() # [dst]=src
 	minx_map_paths files_map "$HOME" "$dotfiles" "${files[@]}"
 	minx_map_paths folder_map "$HOME" "$dotfiles" "${dirs[@]}"
-	folder_map["$HOME/.local/bin/minx"]="$MINX_PROFILES_DIR/user/scripts/bin"
 
 	# Private dirs first; minx_symlink creates every other parent itself.
 	if minx_is_desktop_install; then

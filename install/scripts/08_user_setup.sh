@@ -2,6 +2,7 @@
 # shellcheck disable=SC1091 # path is resolved at runtime.
 
 set -euo pipefail
+# set -x
 
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
@@ -21,27 +22,27 @@ main() {
 	local option="${1:---help}"
 
 	case "$option" in
-	"--get-vim-vundle")
-		minx_get_vim_vundle || return 1
-		;;
-
 	"--clone-personal-repos")
 		minx_clone_personal_repos || return 1
 		;;
 
-	"--install-tt")
-		shift 2
-		minx_install_tt "$@" || return 1
-		;;
-
-	"--install-wikiviewer")
-		shift 2
-		minx_install_wikiviewer || return 1
+	"--get-vim-vundle")
+		minx_get_vim_vundle || return 1
 		;;
 
 	"--restore-rc-files")
 		minx_backup_user_rc_files || return 1
 		minx_restore_user_rc_files || return 1
+		;;
+
+	"--install-wikiviewer")
+		shift 1
+		minx_install_wikiviewer || return 1
+		;;
+
+	"--install-tt")
+		shift 1
+		minx_install_tt "$@" || return 1
 		;;
 
 	"--install-mime-types")
