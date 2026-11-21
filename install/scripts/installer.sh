@@ -766,8 +766,10 @@ minx_install_languagetool() ( # {{{
 
 	minx_log "Determining LanguageTool directory"
 
-	# Captured first: piping unzip into awk's early exit would fail under pipefail.
-	archive_listing="$(unzip -Z1 "$zip_file" 2>/dev/null)" ||
+	# Captured first, and awk below reads ALL of its input (no early "exit"):
+	# an early exit makes the writer die with SIGPIPE, which pipefail + set -e
+	# turn into a silent abort of the whole script.
+	archive_listing="$(unzip -Z1 "$zip_file")" ||
 		{
 			minx_fail "Failed to inspect archive: $zip_file"
 			return 1
@@ -775,7 +777,7 @@ minx_install_languagetool() ( # {{{
 
 	lt_dir="$(
 		printf '%s\n' "$archive_listing" |
-			awk -F/ 'NF > 1 && $1 != "" { print $1; exit }'
+			awk -F/ 'NF > 1 && $1 != "" && root == "" { root = $1 } END { print root }'
 	)"
 
 	if [[ -z "$lt_dir" ]]; then
