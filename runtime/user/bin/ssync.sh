@@ -192,34 +192,36 @@ _taskwarrior_start_tunnel() {
 	local local_port="$2"
 	local remote_port="$3"
 
-	# Reuse an existing SSH master managed by ~/.ssh/config.
-	if ssh -O check "$ssh_alias" >/dev/null 2>&1; then
-		printf 'Reusing existing SSH master connection\n' >&2
+	TW_SOCK="$STATE_DIR/tw-tunnel.sock"
+	TW_ALIAS="$ssh_alias"
+
+	# Reuse only our own SSH master.
+	if ssh -S "$TW_SOCK" -O check "$ssh_alias" >/dev/null 2>&1; then
+		printf 'Reusing existing Taskwarrior SSH tunnel\n' >&2
 		TW_TUNNEL_OWNED=0
 		return 0
 	fi
 
-	TW_SOCK="$STATE_DIR/tw-tunnel.sock"
-	TW_ALIAS="$ssh_alias"
-
-	# Refuse to use an unrelated listener.
+	# Never overwrite an unrelated listener.
 	if lsof -nP -i "TCP:$local_port" -sTCP:LISTEN >/dev/null 2>&1; then
 		printf 'Port %s is already used by another process\n' \
 			"$local_port" >&2
 		return 1
 	fi
 
-	printf 'Starting dedicated SSH tunnel 127.0.0.1:%s -> %s:%s\n' \
-		"$local_port" "$ssh_alias" "$remote_port" >&2
+	rm -f "$TW_SOCK"
+
+	printf 'Starting Taskwarrior SSH tunnel using config: %s\n' "$ssh_alias" >&2
 
 	ssh \
 		-M -S "$TW_SOCK" \
 		-f -N \
 		-o ControlMaster=yes \
+		-o ControlPersist=yes \
 		-o ExitOnForwardFailure=yes \
 		-o BatchMode=yes \
-		-o ClearAllForwardings=yes \
-		-L "127.0.0.1:${local_port}:127.0.0.1:${remote_port}" \
+		-o RequestTTY=no \
+		-o RemoteCommand=none \
 		"$ssh_alias" 200>&- || return 1
 
 	TW_TUNNEL_OWNED=1
@@ -565,10 +567,10 @@ Synchronize one application, or all of them.
 
 Syncs:
 		taskwarrior   Synchronize Taskwarrior
-		mail [ACCT]   Synchronize mail (gmail, gmx; default both) and update the notmuch database
-		assets         Two-way sync of secured assets (unison)
+		mail [ACCT]   Synchronize mail (gmail, gmx; default both), update the notmuch database, and run muchsync
+		assets        Two-way sync of secured assets (unison)
 		passwords     Synchronize passwords
-	documents         Synchronize secured documents
+		documents     Synchronize secured documents
 		calendar      Synchronize calendars
 		ta            Synchronize time tracking
 		all           Run every sync above, one after another
