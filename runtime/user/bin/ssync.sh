@@ -15,6 +15,11 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source /etc/profile.d/minx_profile.sh
 
+if [[ $MINX_INSTALLATION_TYPE != "desktop" ]]; then
+	printf '\n%s\n' "=> [$MINX_INSTALLATION_TYPE installation] -- Does not include \"$(basename "$0")\""
+	return 0
+fi
+
 # Refuse xtrace: it would leak secrets into the terminal and the log.
 case "$-" in
 *x*)

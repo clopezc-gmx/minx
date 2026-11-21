@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [[ $MINX_INSTALLATION_TYPE != "desktop" ]]; then
+	printf '\n%s\n' "=> [$MINX_INSTALLATION_TYPE installation] -- Does not include \"$(basename "$0")\""
+	return 0
+fi
+
 _mailto_autocomplete() {
 	local cur
 	local -a contacts

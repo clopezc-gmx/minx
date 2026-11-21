@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $MINX_INSTALLATION_TYPE != "desktop" ]]; then
+	printf '\n%s\n' "=> [$MINX_INSTALLATION_TYPE installation] -- Does not include \"$(basename "$0")\""
+	return 0
+fi
+
 usage() {
 	echo "Usage: $0 {enable|disable|start|stop|restart|status|logs|follow} service"
 	exit 1

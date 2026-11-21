@@ -774,44 +774,45 @@ main() {
 	local action="${1:-"--help"}"
 	local function_name=""
 
-	case "$action" in
-	"--run-update")
-		function_name="_run_update"
-		;;
-	"--initial-setup")
-		function_name="_initial_setup"
-		;;
-	"--install-firmware")
-		function_name="_install_firmware"
-		;;
-	"--install-base")
-		function_name="_install_base"
-		;;
-	"--install-dev")
-		function_name="_install_dev"
-		;;
-	"--install-desktop")
-		function_name="_install_desktop"
-		;;
-	"--install-radio")
-		function_name="_install_radio"
-		;;
-	"--install-power")
-		function_name="_install_power"
-		;;
-	"--install-latex")
-		function_name="_install_latex"
-		;;
-	*)
-		printf '\n%s\n' "Try with a valid argument:"
-		source "$SCRIPT_DIR/lib/list_dispatch_options.sh"
-		minx_list_options "$0"
-		if [[ "$action" == "--help" || "$action" == "-h" ]]; then
-			return 0
-		fi
-		return 1
-		;;
-	esac
+	local -A actions=(
+		["--run-update"]=_run_update
+		["--initial-setup"]=_initial_setup
+		["--install-firmware"]=_install_firmware
+		["--install-base"]=_install_base
+		["--install-dev"]=_install_dev
+	)
+
+	local -a options=(
+		--run-update
+		--initial-setup
+		--install-firmware
+		--install-base
+		--install-dev
+	)
+
+	if minx_is_desktop_install; then
+		actions+=(
+			["--install-desktop"]=_install_desktop
+			["--install-radio"]=_install_radio
+			["--install-power"]=_install_power
+		)
+		options+=(
+			--install-desktop
+			--install-radio
+			--install-power
+		)
+	fi
+
+	actions+=(["--install-latex"]=_install_latex)
+	options+=(--install-latex)
+
+	function_name="${actions[$action]:-}"
+
+	if [[ -z "$function_name" ]]; then
+		printf 'Try with a valid argument:\n'
+		printf '  %s\n' "${options[@]}"
+		return 0
+	fi
 
 	# Child: run the action with working errexit.
 	if [[ "${MINX_CHILD:-}" == 1 ]]; then

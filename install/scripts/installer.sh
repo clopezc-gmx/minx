@@ -887,9 +887,15 @@ minx_install_pdfjs() ( # {{{
 minx_install_runtime() ( # {{{
 	local runtime_dir="$MINX_INSTALLATION_DIR/runtime"
 	local profile_file="/etc/profile.d/minx_profile.sh"
-	local profile_template="$MINX_INSTALLER_ROOT/install/config/template_minx_profile.sh"
 	local version_script="$runtime_dir/system/bin/minx-version"
 	local answer=""
+	local profile_template
+
+	if minx_is_desktop_install; then
+		local profile_template="$MINX_INSTALLER_ROOT/install/config/template_minx_profile_desktop.sh"
+	else
+		local profile_template="$MINX_INSTALLER_ROOT/install/config/template_minx_profile_server.sh"
+	fi
 
 	_minx_header "$runtime_dir"
 
@@ -916,6 +922,10 @@ minx_install_runtime() ( # {{{
 
 	minx_log "Copying 'runtime' ..."
 	minx_copy "$MINX_INSTALLER_ROOT/runtime" "$runtime_dir" || return 1
+
+	if minx_is_server_install; then
+		_strip_runtime_for_server
+	fi
 
 	minx_log "Creating minx-version ..."
 
@@ -1163,6 +1173,26 @@ minx_install_calix() ( # {{{
 
 	minx_log "Done"
 ) # }}}
+
+_strip_runtime_for_server() {
+
+	rm "$MINX_INSTALLATION_DIR/runtime/system/bin/{minx-launcher, minx-lockscreen}"
+	rm "$MINX_INSTALLATION_DIR/runtime/system/completion/minx-launcher_completion.bash"
+
+	rm "$MINX_INSTALLATION_DIR/runtime/user/bin/mailto.sh"
+	rm "$MINX_INSTALLATION_DIR/runtime/user/bin/myservices.sh"
+	rm "$MINX_INSTALLATION_DIR/runtime/user/bin/qb.sh"
+	rm "$MINX_INSTALLATION_DIR/runtime/user/bin/ssync.sh"
+
+	rm "$MINX_INSTALLATION_DIR/runtime/user/completion/mailto_completion.bash"
+	rm "$MINX_INSTALLATION_DIR/runtime/user/completion/myservices_completion.bash"
+	rm "$MINX_INSTALLATION_DIR/runtime/user/completion/ssync_completion.bash"
+
+	rm -rf "$MINX_INSTALLATION_DIR/runtime/user/hooks/"
+	rm -rf "$MINX_INSTALLATION_DIR/runtime/user/lib/"
+	rm -rf "$MINX_INSTALLATION_DIR/runtime/user/scripts/"
+
+}
 
 # Main
 # ----------------------------------------------------------------------

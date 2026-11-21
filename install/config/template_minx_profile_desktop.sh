@@ -58,6 +58,7 @@ export MINX_REMOTE_BAREREPOS_DIR=@@MINX_REMOTE_BAREREPOS_DIR@@
 export MINX_INSTALLATION_DIR=@@MINX_INSTALLATION_DIR@@
 export MINX_REPOS_DIR=@@MINX_REPOS_DIR@@
 export MINX_PROFILES_DIR=@@MINX_PROFILES_DIR@@
+export MINX_INSTALLATION_TYPE=@@MINX_INSTALLATION_TYPE@@
 
 readonly MINX_USER_ASSETS_DIR
 readonly MINX_USER_REPOS_DIR
@@ -70,93 +71,50 @@ readonly MINX_INSTALLATION_DIR
 readonly MINX_REPOS_DIR
 readonly MINX_PROFILES_DIR
 
-# ----------------------------------------------------------------------
 # dwm
-# ----------------------------------------------------------------------
-
 path_prepend "$MINX_INSTALLATION_DIR/dwm/usr/local/bin"
 manpath_prepend "$MINX_INSTALLATION_DIR/dwm/usr/local/share/man"
 
-# ----------------------------------------------------------------------
 # sent
-# ----------------------------------------------------------------------
-
 path_prepend "$MINX_INSTALLATION_DIR/sent/usr/local/bin"
 manpath_prepend "$MINX_INSTALLATION_DIR/sent/usr/local/share/man"
 
-# ----------------------------------------------------------------------
 # st
-# ----------------------------------------------------------------------
-
 path_prepend "$MINX_INSTALLATION_DIR/st/usr/local/bin"
 manpath_prepend "$MINX_INSTALLATION_DIR/st/usr/local/share/man"
 
-# ----------------------------------------------------------------------
 # slock
-# ----------------------------------------------------------------------
-
 path_prepend "$MINX_INSTALLATION_DIR/slock/usr/local/bin"
 manpath_prepend "$MINX_INSTALLATION_DIR/slock/usr/local/share/man"
 
-# ----------------------------------------------------------------------
-# go
-# ----------------------------------------------------------------------
-
-path_prepend "$MINX_INSTALLATION_DIR/go/bin"
-
-# ----------------------------------------------------------------------
 # languagetool
-# ----------------------------------------------------------------------
-
 path_prepend "$MINX_INSTALLATION_DIR/languagetool/LanguageTool-6.9-SNAPSHOT"
 
-# ----------------------------------------------------------------------
-# ctags
-# ----------------------------------------------------------------------
-
-path_prepend "$MINX_INSTALLATION_DIR/ctags/bin"
-
-# ----------------------------------------------------------------------
 # qutebrowser
-# ----------------------------------------------------------------------
-
 path_prepend "$MINX_INSTALLATION_DIR/qutebrowser/bin"
 
-# ----------------------------------------------------------------------
-# vim
-# ----------------------------------------------------------------------
-
-path_prepend "$MINX_INSTALLATION_DIR/vim/usr/local/bin"
-manpath_prepend "$MINX_INSTALLATION_DIR/vim/usr/local/share/man"
-
-# ----------------------------------------------------------------------
 # taskwarrior
-# ----------------------------------------------------------------------
-
 path_prepend "$MINX_INSTALLATION_DIR/taskwarrior/bin"
 manpath_prepend "$MINX_INSTALLATION_DIR/taskwarrior/share/man"
 
-# ----------------------------------------------------------------------
 # timewarrior
-# ----------------------------------------------------------------------
-
 path_prepend "$MINX_INSTALLATION_DIR/timewarrior/bin"
 manpath_prepend "$MINX_INSTALLATION_DIR/timewarrior/share/man"
 
-# ----------------------------------------------------------------------
-# runtime
-# ----------------------------------------------------------------------
+# go
+path_prepend "$MINX_INSTALLATION_DIR/go/bin"
 
+# ctags
+path_prepend "$MINX_INSTALLATION_DIR/ctags/bin"
+
+# vim
+path_prepend "$MINX_INSTALLATION_DIR/vim/usr/local/bin"
+manpath_prepend "$MINX_INSTALLATION_DIR/vim/usr/local/share/man"
+export VIMRUNTIME="$MINX_INSTALLATION_DIR/vim/usr/local/share/vim/vim92"
+
+# runtime
 path_prepend "$MINX_INSTALLATION_DIR/runtime/system/bin"
 path_prepend "$MINX_INSTALLATION_DIR/runtime/user/bin"
-
-# ----------------------------------------------------------------------
-# Environment
-# ----------------------------------------------------------------------
-
-export VIMRUNTIME="$MINX_INSTALLATION_DIR/vim/usr/local/share/vim/vim92"
-export PATH
-export MANPATH
 
 # ----------------------------------------------------------------------
 # Bash completion
@@ -165,3 +123,9 @@ export MANPATH
 if [[ $- == *i* ]]; then
 	source "$MINX_REPOS_DIR/timewarrior/completion/timew-completion.bash"
 fi
+
+# ----------------------------------------------------------------------
+# Environment
+# ----------------------------------------------------------------------
+export PATH
+export MANPATH

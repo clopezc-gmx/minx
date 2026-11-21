@@ -481,7 +481,7 @@ minx_install_system_services() { # {{{
 	minx_assert_is_root || return 1
 
 	if minx_is_server_install; then
-		minx_log_server_skip "Do not install system services (installed manually, see documentation)"
+		minx_log_server_skip "Does not install minx system services. Additional system services must be installed manually. See documentation."
 		return 0
 	fi
 
@@ -690,7 +690,7 @@ minx_init_mail() { # {{{
 	minx_assert_is_non_root || return 1
 
 	if minx_is_server_install; then
-		minx_log_server_skip "Do not install email client"
+		minx_log_server_skip "Does not include an email client"
 		return 0
 	fi
 
@@ -718,7 +718,7 @@ minx_install_tt() { # {{{
 	minx_assert_is_non_root || return 1
 
 	if minx_is_server_install; then
-		minx_log_server_skip "Do not install tt in server"
+		minx_log_server_skip "Does not include \"tt\""
 		return 0
 	fi
 

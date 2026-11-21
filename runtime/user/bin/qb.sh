@@ -11,6 +11,11 @@ set -euo pipefail
 # Requires the open_or_focus command in config.py.
 # =============================================
 
+if [[ $MINX_INSTALLATION_TYPE != "desktop" ]]; then
+	printf '\n%s\n' "=> [$MINX_INSTALLATION_TYPE installation] -- Does not include \"$(basename "$0")\""
+	return 0
+fi
+
 if [ -z "${DISPLAY:-}" ]; then
 	printf '%s\n' "qb.sh requires X running." >&2
 	exit 1

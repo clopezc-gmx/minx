@@ -919,7 +919,7 @@ minx_register_commit() { # {{{
 
 # Prints "desktop" or "server".
 minx_load_installation_type() { # {{{
-	local file="$MINX_INFO_DIR/minx_installation_type"
+	local file="$MINX_INFO_DIR/installation_type"
 	local variant
 
 	if [[ ! -e "$file" ]]; then
@@ -932,7 +932,7 @@ minx_load_installation_type() { # {{{
 	case "$variant" in
 	desktop | server) printf '%s\n' "$variant" ;;
 	*)
-		minx_fail "Invalid value for minx_installation_type: '$variant' (expected 'desktop' or 'server')."
+		minx_fail "Invalid value for installation_type: '$variant' (expected 'desktop' or 'server')."
 		return 1
 		;;
 	esac
@@ -941,30 +941,6 @@ minx_load_installation_type() { # {{{
 # Quiet predicates (0 = true, 1 = false). Use these in conditionals.
 minx_is_desktop_install() { [[ "$(minx_load_installation_type)" == desktop ]]; }
 minx_is_server_install() { [[ "$(minx_load_installation_type)" == server ]]; }
-
-# Assertions: same checks, but print an error when they fail.
-minx_assert_is_desktop_install() { # {{{
-	local installation_type
-
-	installation_type="$(minx_load_installation_type)" || return 1
-
-	if [[ "$installation_type" != desktop ]]; then
-		minx_fail "minx_assert_is_desktop_install: $installation_type != desktop"
-		return 1
-	fi
-} # }}}
-
-minx_assert_is_server_install() { # {{{
-	local installation_type
-
-	installation_type="$(minx_load_installation_type)" || return 1
-
-	if [[ "$installation_type" != server ]]; then
-		minx_fail "minx_assert_is_server_install: $installation_type != server"
-		return 1
-	fi
-} # }}}
-
 # Returns 0 (skip) on a server install without display, 1 (carry on) otherwise.
 # Usage: minx_skip_in_server_install "name" && return 0
 minx_skip_in_server_install() { # {{{
@@ -1093,7 +1069,11 @@ _minx_load_pinned_versions() {
 MINX_INSTALLER_ROOT="$(_minx_get_installer_root)" || return 1
 readonly MINX_INSTALLER_ROOT
 
-source "$MINX_INSTALLER_ROOT/install/config/minx.conf" || return 1
+if [[ -z "${__MINX_CONF_LOADED:-}" ]]; then
+	source "$MINX_INSTALLER_ROOT/install/config/minx.conf" || return 1
+	readonly __MINX_CONF_LOADED=1
+fi
+
 _minx_import_conf || return 1
 
 # --- directories ----------------------------------------------------------------
@@ -1105,6 +1085,9 @@ readonly MINX_INFO_DIR="$MINX_INSTALLATION_DIR/info"
 readonly MINX_LOG_DIR="$MINX_INSTALLATION_DIR/logs"
 readonly MINX_REPOS_DIR="$MINX_INSTALLATION_DIR/repos"
 readonly MINX_DOWNLOADS_DIR="$MINX_REPOS_DIR/downloads"
+
+MINX_INSTALLATION_TYPE="$(minx_load_installation_type)"
+readonly MINX_INSTALLATION_TYPE
 
 # --- constants --------------------------------------------------------------------
 

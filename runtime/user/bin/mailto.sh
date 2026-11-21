@@ -2,6 +2,11 @@
 set -euo pipefail
 # set -x
 
+if [[ $MINX_INSTALLATION_TYPE != "desktop" ]]; then
+	printf '\n%s\n' "=> [$MINX_INSTALLATION_TYPE installation] -- Does not include \"$(basename "$0")\""
+	return 0
+fi
+
 if [[ $# -ne 1 || "$1" != mailto:* ]]; then
 	echo "Error: Usage: $0 mailto:recipient@example.com" >&2
 	exit 1

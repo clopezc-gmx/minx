@@ -4,6 +4,11 @@
 # minx_launcher_autocomplete.bash
 #
 
+if [[ $MINX_INSTALLATION_TYPE != "desktop" ]]; then
+	printf '\n%s\n' "=> [$MINX_INSTALLATION_TYPE installation] -- Does not include \"$(basename "$0")\""
+	return 0
+fi
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" || return 0
 source "$SCRIPT_DIR/../lib/minx_variables.sh"
 
