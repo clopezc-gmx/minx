@@ -1,6 +1,6 @@
 # commits
 
-commit_ctags=394badef3
+commit_ctags=bc332fbea
 url_ctags=https://github.com/universal-ctags/ctags.git
 
 commit_dwm=1563572
@@ -27,13 +27,13 @@ url_linux_a11y_sound_theme=https://github.com/coffeeking/linux-a11y-sound-theme.
 commit_st=fdaadd5
 url_st=https://git.suckless.org/st
 
-commit_taskwarrior=401228f25
+commit_taskwarrior=783af9d38
 url_taskwarrior=https://github.com/GothenburgBitFactory/taskwarrior.git
 
-commit_timewarrior=2263be900
+commit_timewarrior=e77c90ab4
 url_timewarrior=https://github.com/GothenburgBitFactory/timewarrior.git
 
-commit_vim=cbe1cf017
+commit_vim=d80223070
 url_vim=https://github.com/vim/vim.git
 
 commit_pdfjs=1c8020a
