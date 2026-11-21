@@ -94,6 +94,8 @@ _minx_user_rc_files() { # out_array_name
 
 # Relative paths that are symlinked directories (same name in the dotfiles repo).
 _minx_user_rc_dirs() { # out_array_name
+
+	# shellcheck disable=SC2178 #variable passed as reference
 	local -n _out="$1"
 
 	_out=(
@@ -142,7 +144,8 @@ minx_restore_user_rc_files() { # {{{
 
 	# Private dirs first; minx_symlink creates every other parent itself.
 	if minx_is_desktop_install; then
-		mkdir -p -m 700 -- "$HOME/.ssh" "$HOME/.gnupg" || return 1
+		mkdir -p -- "$HOME/.ssh" "$HOME/.gnupg" || return 1
+		chmod 700 -- "$HOME/.ssh" "$HOME/.gnupg" || return 1
 	fi
 
 	minx_symlink_map files_map || return 1
@@ -190,8 +193,8 @@ minx_restore_root_rc_files() { # {{{
 minx_install_mime_types() { # {{{
 	minx_assert_is_non_root || return 1
 
-	if minx_is_server_install; then
-		minx_log_server_skip "Do not install mime types, keep defaults"
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Does not include \"custom mime_types\""
 		return 0
 	fi
 
@@ -205,6 +208,7 @@ minx_install_mime_types() { # {{{
 
 	for file in "$MINX_PROFILES_DIR/user/mimetypes"/*.desktop; do
 		[[ -f "$file" ]] || continue
+		# shellcheck disable=SC2034 # maps are passed by name to the helpers below
 		desktop_files["$desktop_dir/${file##*/}"]="$file"
 	done
 
@@ -275,6 +279,7 @@ minx_clone_personal_repos() { # {{{
 
 	_minx_clone_repo mydocuments "$MINX_USER_DOCUMENTS_DIR" "$remote" || return 1
 
+	# shellcheck disable=SC2034 # maps are passed by name to the helpers below
 	local -A folder_map=( # [dst]=src
 		["$HOME/.abook"]="$dst_dir/.abook"
 		["$HOME/.password-store"]="$dst_dir/.password-store"
@@ -394,7 +399,7 @@ minx_install_user_services() { # {{{
 	minx_assert_is_non_root || return 1
 
 	if ! minx_is_desktop_install; then
-		minx_log_server_skip "Do not install user services (installed manually, see documentation)"
+		minx_log_server_skip "Does not include system services. Additional services must be installed manually. See documentation."
 		return 0
 	fi
 
@@ -693,7 +698,8 @@ minx_init_mail() { # {{{
 	local -a accounts=(gmx gmail)
 	local account
 
-	mkdir -p -m 700 -- "$mail_tmp_dir" || return 1
+	mkdir -p 700 -- "$mail_tmp_dir" || return 1
+	chmod 700 -- "$mail_tmp_dir" || return 1
 
 	for account in "${accounts[@]}"; do
 		_minx_setup_mail_account "$account" "$mail_tmp_dir" || return 1

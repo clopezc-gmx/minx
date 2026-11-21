@@ -360,7 +360,6 @@ _install_base() { #{{{
 		vnstati
 		sshfs
 		socat
-		khal
 	)
 
 	local docs_and_files=(
@@ -502,7 +501,10 @@ _install_gpu() { #{{{
 
 _install_desktop() { # {{{
 
-	minx_assert_is_desktop_install || return 1
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Does not include \"desktop packages\""
+		return 0
+	fi
 
 	# No xserver-xorg-video-all: the modesetting driver is the X11 default.
 	local x11=(
@@ -592,6 +594,7 @@ _install_desktop() { # {{{
 		bat
 		vite
 		xdot
+		khal
 	)
 
 	local mail_and_web=(
@@ -674,7 +677,10 @@ _install_desktop() { # {{{
 
 _install_radio() { #{{{
 
-	minx_assert_is_desktop_install || return 1
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Does not include \"radio packages\""
+		return 0
+	fi
 
 	_install_packages \
 		network-manager \
@@ -737,7 +743,10 @@ _install_radio() { #{{{
 
 _install_power() { # {{{
 
-	minx_assert_is_desktop_install || return 1
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Does not include \"power packages\""
+		return 0
+	fi
 
 	if [[ "$(minx_load_info device_type)" != "portable" ]]; then
 		printf '=> Skipping power packages: device is not portable.\n'

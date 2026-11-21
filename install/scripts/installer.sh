@@ -527,7 +527,10 @@ minx_install_taskwarrior() ( # {{{
 	local build_dir="$repo_dir/_build"
 	local install_dir="$MINX_INSTALLATION_DIR/taskwarrior"
 
-	minx_assert_is_desktop_install
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Does not include \"taskwarrior\""
+		return 0
+	fi
 
 	_minx_header "$repo_dir"
 
@@ -563,7 +566,10 @@ minx_install_timewarrior() ( # {{{
 	local build_dir="$repo_dir/_build"
 	local install_dir="$MINX_INSTALLATION_DIR/timewarrior"
 
-	minx_assert_is_desktop_install
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Does not include \"timewarrior\""
+		return 0
+	fi
 
 	_minx_header "$repo_dir"
 
@@ -688,7 +694,10 @@ minx_install_languagetool() ( # {{{
 	local ft_model_file="$src_dir/lid.176.bin"
 	local ft_model_sha256="${MINX_PINNED_VERSIONS[sha256_fasttext_model]:-}"
 
-	minx_assert_is_desktop_install
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Does not include \"languagetool\""
+		return 0
+	fi
 
 	_minx_header "languagetool with fasttext"
 
@@ -822,7 +831,10 @@ minx_install_pdfjs() ( # {{{
 	local install_dir="$MINX_INSTALLATION_DIR/pdfjs"
 	local build_output="$repo_dir/build/generic"
 
-	minx_assert_is_desktop_install
+	if ! minx_is_desktop_install; then
+		minx_log_server_skip "Does not include \"pdfjs\""
+		return 0
+	fi
 
 	minx_skip_unless_built "$ACTION" "pdf.js" "$build_output" && return 0
 

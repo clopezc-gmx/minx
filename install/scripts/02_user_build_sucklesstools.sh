@@ -14,7 +14,10 @@ if ((EUID == 0)); then
 	exit 1
 fi
 
-minx_assert_is_desktop_install
+if ! minx_is_desktop_install; then
+	minx_log_server_skip "Does not include \"sucklesstools\""
+	return 0
+fi
 
 main() {
 
