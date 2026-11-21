@@ -162,27 +162,34 @@ main() { # {{{
 
 	local -a jobs=(
 		ctags
-		dwm
-		fasttext
-		latex_snippets
-		qutebrowser
-		qutebrowser_dracula_theme
-		sent
-		linux_a11y_sound_theme
-		st
-		taskwarrior
-		timewarrior
-		vim
-		pdfjs
-		slock
-		tmpi
-		languagetool
-		fasttext_model
-		jetbrains_mono
 		go
+		latex_snippets
 		nvm
-		calix
+		vim
 	)
+
+	if [[ $(minx_load_installation_type) == "desktop" ]]; then
+
+		jobs+=(
+			calix
+			dwm
+			fasttext
+			fasttext_model
+			jetbrains_mono
+			languagetool
+			linux_a11y_sound_theme
+			pdfjs
+			qutebrowser
+			qutebrowser_dracula_theme
+			sent
+			slock
+			st
+			taskwarrior
+			timewarrior
+			tmpi
+		)
+
+	fi
 
 	local -a pids=()
 	local job
