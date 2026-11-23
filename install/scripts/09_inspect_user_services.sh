@@ -17,6 +17,11 @@
 
 set -uo pipefail
 
+if ! minx_is_desktop_install; then
+	minx_log_server_skip "Does not include \"user services\""
+	exit 0
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 TARGET_USER="${USER:-$(id -un)}"

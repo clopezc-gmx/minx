@@ -20,8 +20,13 @@
 
 set -uo pipefail
 
+if ! minx_is_desktop_install; then
+	minx_log_server_skip "Does not include \"system services\""
+	exit 0
+fi
+
 readonly SERVICE_TEMPLATE="/etc/systemd/system/shutdown-pre@.service"
-readonly HOOK="/opt/minx/runtime/user/hooks/system_shutdown_pre.sh"
+readonly HOOK="$MINX_INSTALLATION_DIR/runtime/user/hooks/system_shutdown_pre.sh"
 readonly SLEEP_HOOK="/lib/systemd/system-sleep/sleep_dispatch.sh"
 
 TARGET_USER="${SUDO_USER:-clopez}"

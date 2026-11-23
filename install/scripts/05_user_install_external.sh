@@ -22,7 +22,6 @@ main() {
 		["--go-packages"]=go_packages
 		["--nodejs-packages"]=nodejs_packages
 		["--invariant-repos"]=invariant_repos
-		["--calix"]=calix
 	)
 	local -a options=()
 
@@ -33,8 +32,16 @@ main() {
 		--go-packages
 		--nodejs-packages
 		--invariant-repos
-		--calix
 	)
+
+	if [[ "$MINX_INSTALLATION_TYPE" == "desktop" ]]; then
+		actions+=(
+			["--calix"]=calix
+		)
+		options+=(
+			--calix
+		)
+	fi
 
 	if [[ -z ${actions["$action"]:-} ]]; then
 		printf 'Try with a valid argument:\n'

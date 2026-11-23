@@ -101,9 +101,15 @@ _minx_user_rc_dirs() { # out_array_name
 	_out=(
 		.bashrc.d
 		.config
-		.newsboat
 		.vim
 	)
+
+	minx_is_desktop_install || return 0
+
+	_out+=(
+		.newsboat
+	)
+
 }
 
 minx_backup_user_rc_files() { # {{{

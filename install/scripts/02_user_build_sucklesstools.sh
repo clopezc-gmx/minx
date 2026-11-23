@@ -15,7 +15,7 @@ fi
 
 if ! minx_is_desktop_install; then
 	minx_log_server_skip "Does not include \"sucklesstools\""
-	return 0
+	exit 0
 fi
 
 main() {
