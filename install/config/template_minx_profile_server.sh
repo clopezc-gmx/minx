@@ -91,3 +91,5 @@ path_prepend "$MINX_INSTALLATION_DIR/runtime/user/bin"
 # ----------------------------------------------------------------------
 export PATH
 export MANPATH
+
+alias nano=vim
