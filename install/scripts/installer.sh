@@ -439,7 +439,7 @@ minx_install_pipx_packages() ( # {{{
 		proselint=="${MINX_PINNED_VERSIONS[version_pipx_proselint]}"
 		pycln=="${MINX_PINNED_VERSIONS[version_pipx_pycln]}"
 		pylint=="${MINX_PINNED_VERSIONS[version_pipx_pylint]}"
-		ranger-fm=="${MINX_PINNED_VERSIONS[version_pipx_ranger]}"
+		ranger-fm=="${MINX_PINNED_VERSIONS[version_pipx_ranger_fm]}"
 		shellcheck-py=="${MINX_PINNED_VERSIONS[version_pipx_shellcheck_py]}"
 		vale=="${MINX_PINNED_VERSIONS[version_pipx_vale]}"
 		vdirsyncer=="${MINX_PINNED_VERSIONS[version_pipx_vdirsyncer]}"
