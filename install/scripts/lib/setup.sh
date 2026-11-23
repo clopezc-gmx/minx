@@ -6,9 +6,9 @@
 # Public functions:
 #   minx_backup_user_rc_files     minx_restore_user_rc_files
 #   minx_backup_root_rc_files     minx_restore_root_rc_files
-#   minx_install_mime_types       minx_get_vim_vundle
+#   minx_install_mime_types
 #   minx_clone_personal_repos     minx_install_user_services
-#   minx_install_system_services  minx_init_mail
+#   minx_install_system_services
 #   minx_install_tt               minx_install_wikiviewer
 #
 # Depends on minx_utils.sh (logging, role/installation checks, symlink/move
@@ -107,6 +107,7 @@ _minx_user_rc_dirs() { # out_array_name
 }
 
 minx_backup_user_rc_files() { # {{{
+
 	minx_assert_is_non_root || return 1
 
 	minx_section "Backing up existing dotfiles"
@@ -129,7 +130,10 @@ minx_backup_user_rc_files() { # {{{
 } # }}}
 
 minx_restore_user_rc_files() { # {{{
+
 	minx_assert_is_non_root || return 1
+
+	minx_backup_user_rc_files || return 1
 
 	local dotfiles="$MINX_PROFILES_DIR/user/dotfiles"
 
@@ -175,7 +179,10 @@ minx_backup_root_rc_files() { # {{{
 } # }}}
 
 minx_restore_root_rc_files() { # {{{
+
 	minx_assert_is_root || return 1
+
+	minx_backup_root_rc_files || return 1
 
 	local -a files=(.bashrc)
 
@@ -221,17 +228,27 @@ minx_install_mime_types() { # {{{
 # Vim
 # =============================================================================
 
-minx_get_vim_vundle() { # {{{
+minx_install_vim_vundle() { # {{{
 	minx_assert_is_non_root || return 1
 	minx_path_exists "$HOME/.vim" || return 1
 
-	local vundle_dir="$HOME/.vim/bundle/Vundle.vim"
+	local minx_vim_vundle_repo="$MINX_INSTALLATION_DIR/repos/vim_vundle"
 
-	if minx_path_exists "$vundle_dir"; then
-		rm -rf -- "$vundle_dir" || return 1
+	if ! minx_path_exists "$minx_vim_vundle_repo"; then
+		printf "=> Vundle.vim does not exist, clone it first with ../01_user_download_repos.sh\n"
+		return 1
 	fi
 
-	git clone -- https://github.com/VundleVim/Vundle.vim.git "$vundle_dir"
+	local vundle="$HOME/.vim/bundle/Vundle.vim"
+	if [[ -L "$vundle" ]]; then
+		rm "$vundle"
+	fi
+
+	mkdir -p "$HOME/.vim/bundle"
+	ln -s "$minx_vim_vundle_repo" "$vundle"
+
+	vim -es -u ~/.vimrc -i NONE -c "PluginInstall" -c "qa"
+
 } # }}}
 
 # =============================================================================
@@ -685,28 +702,6 @@ _minx_setup_mail_account() {
 
 	time mbsync "$account"
 }
-
-minx_init_mail() { # {{{
-	minx_assert_is_non_root || return 1
-
-	if minx_is_server_install; then
-		minx_log_server_skip "Does not include an email client"
-		return 0
-	fi
-
-	local mail_tmp_dir="/tmp/neomutt-$UID"
-	local -a accounts=(gmx gmail)
-	local account
-
-	mkdir -p 700 -- "$mail_tmp_dir" || return 1
-	chmod 700 -- "$mail_tmp_dir" || return 1
-
-	for account in "${accounts[@]}"; do
-		_minx_setup_mail_account "$account" "$mail_tmp_dir" || return 1
-	done
-
-	notmuch new || return 1
-} # }}}
 
 # =============================================================================
 # Tools

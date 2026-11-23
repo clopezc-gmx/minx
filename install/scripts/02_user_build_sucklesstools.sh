@@ -6,7 +6,6 @@ set -euo pipefail
 
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
-source "$SCRIPT_DIR/lib/list_dispatch_options.sh"
 source "$SCRIPT_DIR/lib/utils.sh"
 
 if ((EUID == 0)); then
@@ -22,32 +21,30 @@ fi
 main() {
 
 	local action="${1:-"--help"}"
-	case "$action" in
-	"--dwm")
-		selected_functions+=("dwm")
-		;;
-	"--st")
-		selected_functions+=("st")
-		;;
-	"--sent")
-		selected_functions+=("sent")
-		;;
-	"--slock")
-		selected_functions+=("slock")
-		;;
-	"--all")
-		minx_build_all_options "$0" selected_functions
-		;;
-	*)
-		printf '\n%s\n' "Try with a valid argument:"
-		minx_list_options "$0"
-		return 1
-		;;
-	esac
 
-	for function in "${selected_functions[@]}"; do
-		"$SCRIPT_DIR/installer.sh" --build "$function" || exit 1
-	done
+	local -A actions=()
+	actions+=(
+		["--dwm"]=dwm
+		["--st"]=st
+		["--sent"]=sent
+		["--slock"]=slock
+	)
+
+	local -a options=()
+	options+=(
+		--dwm
+		--st
+		--sent
+		--slock
+	)
+
+	if [[ -z ${actions["$action"]:-} ]]; then
+		printf 'Try with a valid argument:\n'
+		printf '  %s\n' "${options[@]}"
+		return 0
+	fi
+
+	"$SCRIPT_DIR/installer.sh" --build "${actions["$action"]}" || exit 1
 }
 
 main "$@"

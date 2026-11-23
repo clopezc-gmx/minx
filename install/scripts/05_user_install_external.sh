@@ -5,7 +5,6 @@ set -euo pipefail
 
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
-source "$SCRIPT_DIR/lib/list_dispatch_options.sh"
 
 if ((EUID == 0)); then
 	printf '%s\n' "=> Run this script as a non-root user." >&2
@@ -14,50 +13,36 @@ fi
 
 main() {
 	local action="${1:-"--help"}"
-	local selected_functions=()
 
-	case "$action" in
-	"--rust-and-cargo")
-		selected_functions+=("rust_and_cargo")
-		;;
+	local -A actions=()
+	actions+=(
+		["--rust-and-cargo"]=rust_and_cargo
+		["--nvm-and-nodejs"]=nvm_and_nodejs
+		["--pipx-packages"]=pipx_packages
+		["--go-packages"]=go_packages
+		["--nodejs-packages"]=nodejs_packages
+		["--invariant-repos"]=invariant_repos
+		["--calix"]=calix
+	)
+	local -a options=()
 
-	"--nvm-and-nodejs")
-		selected_functions+=("nvm_and_nodejs")
-		;;
+	options+=(
+		--rust-and-cargo
+		--nvm-and-nodejs
+		--pipx-packages
+		--go-packages
+		--nodejs-packages
+		--invariant-repos
+		--calix
+	)
 
-	"--pipx-packages")
-		selected_functions+=("pipx_packages")
-		;;
+	if [[ -z ${actions["$action"]:-} ]]; then
+		printf 'Try with a valid argument:\n'
+		printf '  %s\n' "${options[@]}"
+		return 0
+	fi
 
-	"--go-packages")
-		selected_functions+=("go_packages")
-		;;
-
-	"--nodejs-packages")
-		selected_functions+=("nodejs_packages")
-		;;
-
-	"--invariant-repos")
-		selected_functions+=("invariant_repos")
-		;;
-
-	"--calix")
-		selected_functions+=("calix")
-		;;
-
-	"--all")
-		minx_build_all_options "$0" selected_functions
-		;;
-	*)
-		printf '\n%s\n' "Try with a valid argument:"
-		minx_list_options "$0"
-		return 1
-		;;
-	esac
-
-	for function in "${selected_functions[@]}"; do
-		"$SCRIPT_DIR/installer.sh" --install "$function" || exit 1
-	done
+	"$SCRIPT_DIR/installer.sh" --install "${actions["$action"]}" || exit 1
 }
 
 main "$@"

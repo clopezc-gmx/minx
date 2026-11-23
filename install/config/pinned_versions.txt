@@ -36,6 +36,9 @@ url_timewarrior=https://github.com/GothenburgBitFactory/timewarrior.git
 commit_vim=d80223070
 url_vim=https://github.com/vim/vim.git
 
+commit_vim_vundle=5548a1a
+url_vim_vundle=https://github.com/VundleVim/Vundle.vim.git
+
 commit_pdfjs=1c8020a
 url_pdfjs=https://github.com/mozilla/pdf.js.git
 

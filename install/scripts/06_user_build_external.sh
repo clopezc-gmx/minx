@@ -5,7 +5,6 @@ set -euo pipefail
 
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
-source "$SCRIPT_DIR/lib/list_dispatch_options.sh"
 
 if ((EUID == 0)); then
 	printf '%s\n' "=> Run this script as a non-root user." >&2
@@ -15,43 +14,43 @@ fi
 main() {
 
 	local action="${1:-"--help"}"
-	case "$action" in
-	"--ctags")
-		selected_functions+=("ctags")
-		;;
+	local -A actions=()
 
-	"--taskwarrior")
-		selected_functions+=("taskwarrior")
-		;;
+	actions+=(
+		["--ctags"]=ctags
+		["--vim"]=vim
+	)
 
-	"--timewarrior")
-		selected_functions+=("timewarrior")
-		;;
+	local -a options=()
+	options+=(
+		--ctags
+		--vim
+	)
 
-	"--vim")
-		selected_functions+=("vim")
-		;;
+	if [[ "$MINX_INSTALLATION_TYPE" == "desktop" ]]; then
+		actions+=(
+			["--taskwarrior"]=taskwarrior
+			["--timewarrior"]=timewarrior
+			["--pdfjs"]=pdfjs
+			["--languagetool"]=languagetool
+		)
 
-	"--pdfjs")
-		selected_functions+=("pdfjs")
-		;;
-	"--languagetool")
-		selected_functions+=("languagetool")
-		;;
+		options+=(
+			--taskwarrior
+			--timewarrior
+			--pdfjs
+			--languagetool
+		)
+	fi
 
-	"--all")
-		minx_build_all_options "$0" selected_functions
-		;;
-	*)
-		printf '\n%s\n' "Try with a valid argument:"
-		minx_list_options "$0"
-		return 1
-		;;
-	esac
+	if [[ -z ${actions["$action"]:-} ]]; then
+		printf 'Try with a valid argument:\n'
+		printf '  %s\n' "${options[@]}"
+		return 0
+	fi
 
-	for function in "${selected_functions[@]}"; do
-		"$SCRIPT_DIR/installer.sh" --build "$function" || exit 1
-	done
+	"$SCRIPT_DIR/installer.sh" --build "${actions["$action"]}" || exit 1
+
 }
 
 main "$@"

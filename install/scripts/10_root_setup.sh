@@ -5,7 +5,6 @@ set -euo pipefail
 
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
-source "$SCRIPT_DIR/lib/list_dispatch_options.sh"
 
 # shellcheck disable=SC2034 # variable used in the sourced files
 source "$SCRIPT_DIR/lib/utils.sh"
@@ -18,26 +17,35 @@ fi
 
 main() {
 
-	local option="${1:-"--help"}"
+	local action="${1:-"--help"}"
 
-	case $option in
-	"--restore-rc-files")
-		minx_backup_root_rc_files || return 1
-		minx_restore_root_rc_files || return 1
-		;;
-	"--install-services")
-		minx_install_system_services || return 1
-		;;
-	"--all")
-		minxbuild_all_options "$0" selected_functions
-		;;
-	*)
-		printf '\n%s\n' "Try with a valid argument:"
-		minx_list_options "$0"
+	local -A actions=()
+	actions+=(
+		["--restore-rc-files"]=minx_restore_root_rc_files
+		["--install-services"]=minx_install_system_services
+	)
+
+	local -a options=()
+	options+=(
+		--restore-rc-files
+		--installl-services
+	)
+
+	local function_name="${actions[$action]:-}"
+
+	if [[ -z "$function_name" ]]; then
+		printf 'Try with a valid argument:\n'
+
+		local option
+		for option in "${options[@]}"; do
+			printf '  %s\n' "$option"
+		done
+
 		return 1
-		;;
+	fi
 
-	esac
+	"$function_name" "${@:2}"
+
 }
 
 main "$@"

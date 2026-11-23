@@ -5,7 +5,6 @@ set -euo pipefail
 
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
-source "$SCRIPT_DIR/lib/list_dispatch_options.sh"
 
 if ((EUID != 0)); then
 	printf '%s\n' "=> Run this script as root." >&2
@@ -16,42 +15,44 @@ main() {
 
 	local action="${1:-"--help"}"
 
-	case "$action" in
-	"--go")
-		selected_functions+=("go")
-		;;
-	"--qemu")
-		selected_functions+=("qemu")
-		;;
-	"--jetbrains-mono")
-		selected_functions+=("jetbrains_mono")
-		;;
-	"--spotify")
-		selected_functions+=("spotify")
-		;;
-	"--librewolf")
-		selected_functions+=("librewolf")
-		;;
-	"--onlyoffice")
-		selected_functions+=("onlyoffice")
-		;;
-	"--qutebrowser")
-		selected_functions+=("qutebrowser")
-		;;
-	"--all")
-		minx_build_all_options "$0" selected_functions
-		;;
-	*)
-		printf '\n%s\n' "Try with a valid argument:"
-		minx_list_options "$0"
-		return 1
-		;;
-	esac
+	local -A actions=()
+	actions+=(
+		["--go"]=go
+		["--qemu"]=qemu
+	)
 
-	for function in "${selected_functions[@]}"; do
-		"$SCRIPT_DIR/installer.sh" --install "$function" || exit 1
-	done
+	local -a options=()
+	options+=(
+		--go
+		--qemu
+	)
 
+	if [[ "$MINX_INSTALLATION_TYPE" == "desktop" ]]; then
+		actions+=(
+			["--jetbrains-mono"]=jetbrains_mono
+			["--spotify"]=spotify
+			["--librewolf"]=librewolf
+			["--onlyoffice"]=onlyoffice
+			["--qutebrowser"]=qutebrowser
+		)
+
+		options+=(
+			--jetbrains-mono
+			--spotify
+			--librewolf
+			--onlyoffice
+			--qutebrowser
+		)
+
+	fi
+
+	if [[ -z ${actions["$action"]:-} ]]; then
+		printf 'Try with a valid argument:\n'
+		printf '  %s\n' "${options[@]}"
+		return 0
+	fi
+
+	"$SCRIPT_DIR/installer.sh" --install "${actions["$action"]}" || exit 1
 }
 
 main "$@"

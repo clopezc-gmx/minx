@@ -6,7 +6,6 @@ set -euo pipefail
 
 SCRIPT_PATH="$(realpath -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
-source "$SCRIPT_DIR/lib/list_dispatch_options.sh"
 
 # shellcheck disable=SC2034 # variable used in the sourced files
 source "$SCRIPT_DIR/lib/utils.sh"
@@ -19,54 +18,52 @@ fi
 
 main() {
 
-	local option="${1:---help}"
+	local action="${1:-"--help"}"
 
-	case "$option" in
-	"--clone-personal-repos")
-		minx_clone_personal_repos || return 1
-		;;
+	local -A actions=(
+		["--clone-personal-repos"]=minx_clone_personal_repos
+		["--install-vim-vundle"]=minx_install_vim_vundle
+		["--restore-rc-files"]=minx_restore_user_rc_files
+	)
 
-	"--get-vim-vundle")
-		minx_get_vim_vundle || return 1
-		;;
+	local -a options=(
+		--clone-personal-repos
+		--install-vim-vundle
+		--restore-rc-files
+	)
 
-	"--restore-rc-files")
-		minx_backup_user_rc_files || return 1
-		minx_restore_user_rc_files || return 1
-		;;
+	if [[ $MINX_INSTALLATION_TYPE == "desktop" ]]; then
 
-	"--install-wikiviewer")
-		shift 1
-		minx_install_wikiviewer || return 1
-		;;
+		actions+=(
+			["--install-wikiviewer"]=minx_install_wikiviewer
+			["--install-tt"]=minx_install_tt
+			["--install-mime-types"]=minx_install_mime_types
+			["--install-services"]=minx_install_user_services
+		)
 
-	"--install-tt")
-		shift 1
-		minx_install_tt "$@" || return 1
-		;;
+		options+=(
+			--install-wikiviewer
+			--install-tt
+			--install-mime-types
+			--install-services
+		)
 
-	"--install-mime-types")
-		minx_install_mime_types || return 1
-		;;
+	fi
 
-	"--init-mail")
-		minx_init_mail || return 1
-		;;
+	local function_name="${actions[$action]:-}"
 
-	"--install-services")
-		minx_install_user_services || return 1
-		;;
+	if [[ -z "$function_name" ]]; then
+		printf 'Try with a valid argument:\n'
 
-	"--help")
-		minx_list_options "$0"
-		;;
-	*)
-		printf '\n%s\n' "Try with a valid argument:" >&2
-		minx_list_options "$0"
+		local option
+		for option in "${options[@]}"; do
+			printf '  %s\n' "$option"
+		done
+
 		return 1
-		;;
+	fi
 
-	esac
+	"$function_name" "${@:2}"
 }
 
 main "$@"

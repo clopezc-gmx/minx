@@ -140,6 +140,7 @@ _download_repositories() { # {{{
 	_download_repo taskwarrior
 	_download_repo timewarrior
 	_download_repo vim
+	_download_repo vim_vundle
 	_download_repo pdfjs
 	_download_repo slock
 	_download_repo tmpi
@@ -166,6 +167,7 @@ main() { # {{{
 		latex_snippets
 		nvm
 		vim
+		vim_vundle
 	)
 
 	if [[ $(minx_load_installation_type) == "desktop" ]]; then
@@ -201,7 +203,7 @@ main() { # {{{
 			case "$job" in
 			ctags | dwm | fasttext | latex_snippets | qutebrowser | \
 				qutebrowser_dracula_theme | sent | linux_a11y_sound_theme | \
-				st | taskwarrior | timewarrior | vim | pdfjs | slock | tmpi)
+				st | taskwarrior | timewarrior | vim | vim_vundle | pdfjs | slock | tmpi)
 				_download_repo "$job"
 				;;
 
