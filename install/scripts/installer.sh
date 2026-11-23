@@ -1178,7 +1178,8 @@ minx_install_calix() ( # {{{
 
 _strip_runtime_for_server() {
 
-	rm "$MINX_INSTALLATION_DIR/runtime/system/bin/{minx-launcher, minx-lockscreen}"
+	rm "$MINX_INSTALLATION_DIR/runtime/system/bin/minx-launcher"
+	rm "$MINX_INSTALLATION_DIR/runtime/system/bin/minx-lockscreen"
 	rm "$MINX_INSTALLATION_DIR/runtime/system/completion/minx-launcher_completion.bash"
 
 	rm "$MINX_INSTALLATION_DIR/runtime/user/bin/mailto.sh"
