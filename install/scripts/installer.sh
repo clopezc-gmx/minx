@@ -1192,7 +1192,9 @@ _strip_runtime_for_server() {
 
 	rm -rf "$MINX_INSTALLATION_DIR/runtime/user/hooks/"
 	rm -rf "$MINX_INSTALLATION_DIR/runtime/user/lib/"
-	rm -rf "$MINX_INSTALLATION_DIR/runtime/user/scripts/"
+
+	# delete all file but lt_check.py
+	find "$MINX_INSTALLATION_DIR/runtime/user/scripts/" -mindepth 1 ! -name 'lt_check.py' -delete
 
 }
 
