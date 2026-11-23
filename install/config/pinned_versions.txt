@@ -1,6 +1,6 @@
 # commits
 
-commit_ctags=bc332fbea
+commit_ctags=b08aafeb1
 url_ctags=https://github.com/universal-ctags/ctags.git
 
 commit_dwm=1563572
@@ -27,13 +27,13 @@ url_linux_a11y_sound_theme=https://github.com/coffeeking/linux-a11y-sound-theme.
 commit_st=fdaadd5
 url_st=https://git.suckless.org/st
 
-commit_taskwarrior=783af9d38
+commit_taskwarrior=f4dbc9ef4
 url_taskwarrior=https://github.com/GothenburgBitFactory/taskwarrior.git
 
 commit_timewarrior=e77c90ab4
 url_timewarrior=https://github.com/GothenburgBitFactory/timewarrior.git
 
-commit_vim=d80223070
+commit_vim=bd49a0b5f
 url_vim=https://github.com/vim/vim.git
 
 commit_vim_vundle=5548a1a
@@ -69,7 +69,7 @@ url_go=https://go.dev/dl/
 version_nvm=v0.41.0
 url_nvm=https://raw.githubusercontent.com/nvm-sh/nvm
 
-version_nodejs=24.22.3
+version_nodejs=26.13.1
 
 version_shfmt=v3.14.1
 
@@ -87,7 +87,7 @@ version_pipx_proselint=0.16.0
 version_pipx_pycln=2.6.1
 version_pipx_pylint=4.1.4
 version_pipx_shellcheck_py=0.11.0.1
-version_pipx_vale=3.27.0.0
+version_pipx_vale=3.28.1.0
 version_pipx_vdirsyncer=0.21.0
 version_pipx_yamllint=1.38.0
 version_pipx_yt_dlp=2026.10.26
