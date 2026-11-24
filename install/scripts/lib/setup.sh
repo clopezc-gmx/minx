@@ -73,6 +73,7 @@ _minx_user_rc_files() { # out_array_name
 		.inputrc
 		.profile
 		.vimrc
+		.notmuch-config
 	)
 
 	minx_is_desktop_install || return 0
@@ -83,7 +84,6 @@ _minx_user_rc_files() { # out_array_name
 		.mailcap
 		.mbsyncrc
 		.msmtprc
-		.notmuch-config
 		.ssh/config
 		.taskrc
 		.tmux.conf
@@ -100,16 +100,28 @@ _minx_user_rc_dirs() { # out_array_name
 
 	_out=(
 		.bashrc.d
-		.config
+		.config/pre-commit
+		.config/ranger
+		.config/vale
+		.config/vdirsyncer
 		.vim
 	)
 
 	minx_is_desktop_install || return 0
 
 	_out+=(
+		.config/notmuc
+		.config/neomutt
+		.config/khal
+		.config/rofi
+		.config/dunst
+		.config/vale
+		.config/redshift
+		.config/qutebrowser
+
+		.task
 		.newsboat
 	)
-
 }
 
 minx_backup_user_rc_files() { # {{{
@@ -118,7 +130,7 @@ minx_backup_user_rc_files() { # {{{
 
 	minx_section "Backing up existing dotfiles"
 
-	mkdir -p -- "$HOME/.backups" || return 1
+	mkdir -p -- "$HOME/.backups/.config" || return 1
 
 	local backup_dir
 	backup_dir="$(_minx_rc_backup_dir)"
@@ -142,6 +154,8 @@ minx_restore_user_rc_files() { # {{{
 	minx_backup_user_rc_files || return 1
 
 	local dotfiles="$MINX_PROFILES_DIR/user/dotfiles"
+
+	mkdir -p "$HOME/.config"
 
 	local -a files=() dirs=()
 	_minx_user_rc_files files

@@ -22,14 +22,22 @@ main() {
 	local -A actions=()
 	actions+=(
 		["--restore-rc-files"]=minx_restore_root_rc_files
-		["--install-services"]=minx_install_system_services
 	)
 
 	local -a options=()
 	options+=(
 		--restore-rc-files
-		--installl-services
 	)
+
+	if [[ $MINX_INSTALLATION_TYPE == "desktop" ]]; then
+		actions+=(
+			["--install-services"]=minx_install_system_services
+		)
+
+		options+=(
+			--installl-services
+		)
+	fi
 
 	local function_name="${actions[$action]:-}"
 

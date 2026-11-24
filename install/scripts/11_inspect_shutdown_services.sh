@@ -20,6 +20,11 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck disable=SC2034 # variable used in the sourced files
+source "$SCRIPT_DIR/lib/utils.sh"
+
 if ! minx_is_desktop_install; then
 	minx_log_server_skip "Does not include \"system services\""
 	exit 0
