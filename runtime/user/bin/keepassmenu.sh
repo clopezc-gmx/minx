@@ -178,7 +178,7 @@ _notify() {
 	local title="$1" message="$2"
 
 	if [[ "$BACKEND" == rofi ]]; then
-		notify-send -r 9999 "$title" "$message" 2>/dev/null || true
+		notify-send -r 9999 -u low "$title" "$message" 2>/dev/null || true
 	else
 		printf '%s: %s\n' "$title" "$message" >&2
 	fi
