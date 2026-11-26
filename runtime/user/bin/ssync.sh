@@ -195,14 +195,10 @@ _sync_documents() { # {{{
 _taskwarrior_start_tunnel() {
 	local ssh_alias="$1"
 	local local_port="$2"
-	local remote_port="$3"
 
-	TW_SOCK="$STATE_DIR/tw-tunnel.sock"
-	TW_ALIAS="$ssh_alias"
-
-	# Reuse only our own SSH master.
-	if ssh -S "$TW_SOCK" -O check "$ssh_alias" >/dev/null 2>&1; then
-		printf 'Reusing existing Taskwarrior SSH tunnel\n' >&2
+	# Reuse the SSH master configured in ~/.ssh/config.
+	if ssh -O check "$ssh_alias" >/dev/null 2>&1; then
+		printf 'Reusing existing SSH master: %s\n' "$ssh_alias" >&2
 		TW_TUNNEL_OWNED=0
 		return 0
 	fi
@@ -214,25 +210,15 @@ _taskwarrior_start_tunnel() {
 		return 1
 	fi
 
-	rm -f "$TW_SOCK"
+	printf 'Starting SSH master: %s\n' "$ssh_alias" >&2
 
-	printf 'Starting Taskwarrior SSH tunnel using config: %s\n' "$ssh_alias" >&2
+	ssh -f -N "$ssh_alias" || return 1
 
-	ssh \
-		-M -S "$TW_SOCK" \
-		-f -N \
-		-o ControlMaster=yes \
-		-o ControlPersist=yes \
-		-o ExitOnForwardFailure=yes \
-		-o BatchMode=yes \
-		-o RequestTTY=no \
-		-o RemoteCommand=none \
-		"$ssh_alias" 200>&- || return 1
-
-	TW_TUNNEL_OWNED=1
+	TW_TUNNEL_OWNED=0
 }
 
 _sync_taskwarrior() { # {{{
+	# set -x
 	_require_env MINX_REMOTE_SSH_SERVER || return 1
 	_require_commands task ssh lsof keepassmenu.sh || return 1
 
