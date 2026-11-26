@@ -454,7 +454,7 @@ minx_get_lockscreen_status() { # {{{
 
 	lock=$(<"$MINX_STATE_LOCKSCREEN")
 
-	if [[ "$lock" == "off" ]]; then
+	if [[ "$lock" == "disable" ]]; then
 		printf '|%s󰍂%s\n' "$ORANGE" "$NOCOLOR"
 	fi
 } # }}}

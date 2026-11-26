@@ -428,7 +428,7 @@ minx_lockscreen() { # {{{
 	[[ -n "$option" ]] || option=$(_choose lockscreen) || return 0
 
 	case "$option" in
-	on | off)
+	enable | disable)
 		if ! printf '%s\n' "$option" >"$MINX_STATE_LOCKSCREEN"; then
 			minx_notify \
 				"[ERROR] minx_lockscreen" \
@@ -437,7 +437,7 @@ minx_lockscreen() { # {{{
 		fi
 		;;
 
-	lock)
+	lock_now)
 		_require xset || return 1
 
 		xset dpms force off >/dev/null 2>&1 || {
