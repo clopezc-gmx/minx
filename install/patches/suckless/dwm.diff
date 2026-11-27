@@ -172,7 +172,7 @@ index cb4cf6b..209024f 100644
 +
 +    /* Floating by title */
 +
-+    { NULL       , NULL , "mail"      , 0 , 1 , -1 } ,
++    { NULL       , NULL , "mail"      , 0 , 0 , -1 } ,
 +    { NULL       , NULL , "tt"        , 0 , 1 , -1 } ,
 +    { NULL       , NULL , "reference" , 0 , 1 , -1 } ,
 +    { NULL       , NULL , "notes"     , 0 , 1 , -1 } ,
