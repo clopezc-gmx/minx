@@ -245,7 +245,7 @@ main() { # {{{
 		printf "%s\n" "$marker"
 	} >>"$LOG_FILE"
 
-	if [[ "$(_get_lockscreen_status)" == "off" ]]; then
+	if [[ "$(_get_lockscreen_status)" == "disable" ]]; then
 		minx_printmsg "Lockscreen is disabled via status flag"
 		return 0
 	fi
