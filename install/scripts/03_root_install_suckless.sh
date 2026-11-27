@@ -44,7 +44,7 @@ main() {
 		return 0
 	fi
 
-	"$SCRIPT_DIR/installer.sh" --build "${actions["$action"]}" || exit 1
+	"$SCRIPT_DIR/installer.sh" --install "${actions["$action"]}" || exit 1
 }
 
 main "$@"
