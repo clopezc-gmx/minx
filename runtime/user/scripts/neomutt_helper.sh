@@ -14,13 +14,13 @@ help() {
 Usage: $(basename "$0") [OPTION]
 
 Options:
-	--open-html               Open HTML email content
-	--open-file FILE          Open a PDF file or base64-encoded PDF
-	--mail-to-task            Create a task from a email
-	--open-task               Open the corresponding email from a task
-	--restore-maildir-folders Restore local Maildir folders and sync accounts
-	--get-sync-timestamp      Show the last synchronization timestamp
-	-h, --help                Show this help message
+	--open-html                     Open HTML email content
+	--open-file FILE                Open a PDF file or base64-encoded PDF
+	--mail-to-task                  Create a task from an email
+	--open-mail-from-task ID        Open the corresponding email from a task
+	--cleanup-maildir-folders       Cleanup local Maildir folders and sync accounts
+	--get-mail-sync-status [STATUS] Show the last mail synchronization result
+	-h, --help                      Show this help message
 EOF
 }
 
@@ -177,16 +177,58 @@ _cleanup_maildir_folders() {
 	printf '\nDone\n'
 }
 
-_get_sync_timestamp() {
-	local account="${1:?Account not set}"
-	local last_sync_file="$HOME/.local/state/minx/mail/last-sync-${account}"
-	local last_sync="never"
+_get_mail_sync_status() {
+	local status="${1:-}"
+	local log="$HOME/.local/state/minx/logs/ssync_mail.log"
+	local sync="Sync: Unknown"
+	local data
+	local log_date
+	local log_time
+	local result
+	local date
+	local time
+	local timestamp
+	local symbol
 
-	if [[ -r "$last_sync_file" ]]; then
-		last_sync=$(<"$last_sync_file")
+	if [[ -r "$log" ]]; then
+		data=$(tail -n 50 "$log" | awk '
+			index($0, "=> Success") || index($0, "=> Failed") {
+				line = $0
+			}
+			END { print line }
+		')
+
+		if [[ -n "$data" ]]; then
+			log_date=$(awk '{print $1}' <<<"$data")
+			log_time=$(awk '{print $2}' <<<"$data")
+			result=$(awk '{print $4}' <<<"$data")
+
+			date="${log_date//[-\[\]]/}"
+			time="${log_time:0:2}${log_time:3:2}"
+
+			case "$result" in
+			Success) symbol="✓" ;;
+			Failed) symbol="✗" ;;
+			*) symbol="?" ;;
+			esac
+
+			if [[ "$date" =~ ^[0-9]{8}$ && "$time" =~ ^[0-9]{4}$ ]]; then
+				timestamp="${date:0:4}-${date:4:2}-${date:6:2} ${log_time:0:5}"
+
+				if [[ "$date" == "$(date +%Y%m%d)" ]]; then
+					sync="$(date -d "$timestamp" '+%H:%M') $symbol "
+				else
+					sync="$(date -d "$timestamp" '+%d %b %H:%M') $symbol "
+				fi
+			fi
+		fi
 	fi
 
-	printf '%s' "$last_sync"
+	if [[ -n "$status" ]]; then
+		printf '%s | %s\n' "$status" "$sync"
+	else
+		printf '%s\n' "$sync"
+	fi
 }
 
 _mail_to_task() {
@@ -215,8 +257,8 @@ main() {
 		_open_pdf "$@"
 		;;
 
-	--get-sync-timestamp)
-		_get_last_sync_timestamp "$@"
+	--get-mail-sync-status)
+		_get_mail_sync_status "$@"
 		;;
 
 	--cleanup-maildir-folders)
@@ -234,6 +276,7 @@ main() {
 	-h | --help)
 		help
 		;;
+
 	*)
 		printf 'Error: unknown option: %s\n\n' "$action" >&2
 		help >&2
